@@ -6,7 +6,6 @@ const App = {
     // Application state
     state: {
         userName: null,
-        isFirstVisit: true,
         currentSection: 'welcome',
         isTestRunning: false
     },
@@ -17,8 +16,8 @@ const App = {
     init() {
         console.log('ParkinPal initializing...');
         
-        // Load user data from storage
-        this.loadUserData();
+        // Load user name from storage
+        this.loadUserName();
         
         // Setup event listeners
         this.setupEventListeners();
@@ -28,8 +27,7 @@ const App = {
         
         // Show appropriate initial section
         if (this.state.userName) {
-            Utils.showSection('greeting');
-            this.showGreeting(this.state.userName);
+            Utils.showSection('welcome');
         } else {
             Utils.showSection('welcome');
         }
@@ -38,18 +36,14 @@ const App = {
     },
     
     /**
-     * Load user data from localStorage
+     * Load user name from localStorage
      */
-    loadUserData() {
+    loadUserName() {
         const name = localStorage.getItem('parkinpal_username');
-        const hasVisited = localStorage.getItem('parkinpal_visited');
-        
         if (name) {
             this.state.userName = name;
+            this.showGreeting(name);
         }
-        
-        // Check if this is a returning user (has visited before)
-        this.state.isFirstVisit = !hasVisited;
     },
     
     /**
@@ -59,9 +53,6 @@ const App = {
     saveUserName(name) {
         localStorage.setItem('parkinpal_username', name);
         this.state.userName = name;
-        
-        // Switch to greeting section
-        Utils.showSection('greeting');
         this.showGreeting(name);
     },
     
@@ -70,36 +61,13 @@ const App = {
      * @param {string} name - User's name
      */
     showGreeting(name) {
+        const inputContainer = document.getElementById('name-input-container');
+        const greetingContainer = document.getElementById('greeting-container');
         const userNameSpan = document.getElementById('user-name');
-        const greetingHeading = document.getElementById('greeting-heading');
-        const greetingSubtext = document.getElementById('greeting-subtext');
         
-        if (userNameSpan) {
-            userNameSpan.textContent = name;
-        }
-        
-        // Update greeting text based on first visit status
-        if (greetingSubtext) {
-            if (this.state.isFirstVisit) {
-                greetingSubtext.textContent = 'great meeting you';
-            } else {
-                greetingSubtext.textContent = 'nice to see you again';
-            }
-        }
-        
-        // Mark as visited after showing the greeting
-        if (this.state.isFirstVisit) {
-            localStorage.setItem('parkinpal_visited', 'true');
-            this.state.isFirstVisit = false;
-        }
-    },
-    
-    /**
-     * Navigate back to greeting page
-     */
-    goToGreeting() {
-        Utils.showSection('greeting');
-        this.state.currentSection = 'greeting';
+        inputContainer.classList.add('hidden');
+        greetingContainer.classList.remove('hidden');
+        userNameSpan.textContent = name;
     },
     
     /**
@@ -126,62 +94,20 @@ const App = {
             }
         });
         
-        // Greeting section buttons
-        const greetingTremorBtn = document.getElementById('greeting-tremor-btn');
-        const greetingVoiceBtn = document.getElementById('greeting-voice-btn');
+        // Navigation buttons
+        document.getElementById('nav-tremor').addEventListener('click', () => {
+            if (!this.state.isTestRunning) {
+                Utils.showSection('tremor-test');
+                this.state.currentSection = 'tremor-test';
+            }
+        });
         
-        if (greetingTremorBtn) {
-            greetingTremorBtn.addEventListener('click', () => {
-                if (!this.state.isTestRunning) {
-                    Utils.showSection('tremor-test');
-                    this.state.currentSection = 'tremor-test';
-                }
-            });
-        }
-        
-        if (greetingVoiceBtn) {
-            greetingVoiceBtn.addEventListener('click', () => {
-                if (!this.state.isTestRunning) {
-                    Utils.showSection('voice-test');
-                    this.state.currentSection = 'voice-test';
-                }
-            });
-        }
-        
-        // Back buttons
-        const tremorBack = document.getElementById('tremor-back');
-        const voiceBack = document.getElementById('voice-back');
-        const trendsBack = document.getElementById('trends-back');
-        const reportBack = document.getElementById('report-back');
-        
-        if (tremorBack) {
-            tremorBack.addEventListener('click', () => {
-                if (!this.state.isTestRunning) {
-                    this.goToGreeting();
-                }
-            });
-        }
-        
-        if (voiceBack) {
-            voiceBack.addEventListener('click', () => {
-                if (!this.state.isTestRunning) {
-                    this.goToGreeting();
-                }
-            });
-        }
-        
-        if (trendsBack) {
-            trendsBack.addEventListener('click', () => {
-                this.goToGreeting();
-            });
-        }
-        
-        if (reportBack) {
-            reportBack.addEventListener('click', () => {
-                Utils.showSection('trends');
-                this.state.currentSection = 'trends';
-            });
-        }
+        document.getElementById('nav-voice').addEventListener('click', () => {
+            if (!this.state.isTestRunning) {
+                Utils.showSection('voice-test');
+                this.state.currentSection = 'voice-test';
+            }
+        });
         
         // Analyse Data button
         document.getElementById('analyse-btn').addEventListener('click', () => {
@@ -259,11 +185,11 @@ const App = {
     setTestRunning(running) {
         this.state.isTestRunning = running;
         
-        // Disable back buttons and analyse button during tests
-        const backButtons = document.querySelectorAll('#tremor-back, #voice-back');
+        // Disable navigation during tests
+        const navButtons = document.querySelectorAll('nav button');
         const analyseBtn = document.getElementById('analyse-btn');
         
-        backButtons.forEach(btn => {
+        navButtons.forEach(btn => {
             btn.style.opacity = running ? '0.5' : '1';
             btn.style.pointerEvents = running ? 'none' : 'auto';
         });

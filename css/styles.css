@@ -11,12 +11,12 @@ html {
 }
 
 body {
-    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     overscroll-behavior: none;
 }
 
 /* Prevent text selection on interactive elements */
-button {
+button, nav {
     user-select: none;
     -webkit-user-select: none;
 }
@@ -26,7 +26,7 @@ button {
     width: 40px;
     height: 40px;
     border: 4px solid #E5E7EB;
-    border-top-color: #8B5CF6;
+    border-top-color: #3B82F6;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -40,7 +40,7 @@ button {
 /* Toast Styles */
 .toast {
     padding: 12px 20px;
-    border-radius: 12px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 500;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -59,7 +59,7 @@ button {
 }
 
 .toast-info {
-    background-color: #8B5CF6;
+    background-color: #3B82F6;
     color: white;
 }
 
@@ -97,17 +97,6 @@ button {
 
 .section.hidden {
     display: none;
-}
-
-/* Test Buttons - White with shadow and press animation */
-.test-btn {
-    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.test-btn:active {
-    transform: scale(0.97);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 /* Chart Container */
@@ -155,6 +144,15 @@ button {
     color: #991B1B;
 }
 
+/* Navigation Active States */
+.nav-active {
+    color: #1E40AF !important;
+}
+
+.nav-active.voice {
+    color: #059669 !important;
+}
+
 /* Pulse Animation for Recording */
 .pulse {
     animation: pulse 1.5s ease-in-out infinite;
@@ -172,7 +170,7 @@ button {
 /* Waveform Canvas */
 #voice-waveform {
     width: 100%;
-    background: linear-gradient(to bottom, #F5F3FF, #EDE9FE);
+    background: linear-gradient(to bottom, #F0FDF4, #DCFCE7);
     border-radius: 8px;
 }
 
@@ -194,6 +192,17 @@ button {
     margin-bottom: 6px;
 }
 
+/* Safe Area for iPhone X+ */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    nav {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    main {
+        padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    }
+}
+
 /* Responsive Adjustments */
 @media (min-width: 428px) {
     .max-w-md {
@@ -204,8 +213,15 @@ button {
 /* Focus States for Accessibility */
 button:focus-visible,
 input:focus-visible {
-    outline: 2px solid #A78BFA;
+    outline: 2px solid #3B82F6;
     outline-offset: 2px;
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+    button:hover {
+        background-color: inherit;
+    }
 }
 
 /* Chart.js Responsive */
@@ -227,57 +243,4 @@ button:disabled {
 #tremor-countdown.tick,
 #voice-countdown.tick {
     transform: scale(1.1);
-}
-
-/* Smiley Face Container */
-.smiley-container {
-    position: relative;
-}
-
-/* Back Button Styles */
-#tremor-back,
-#voice-back,
-#trends-back,
-#report-back {
-    transition: all 0.2s ease;
-}
-
-#tremor-back:hover,
-#voice-back:hover,
-#trends-back:hover,
-#report-back:hover {
-    transform: translateX(-3px);
-}
-
-/* Input Styles */
-input[type="text"] {
-    transition: all 0.2s ease;
-}
-
-input[type="text"]:focus {
-    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
-}
-
-/* Card Shadow Animation */
-.bg-white.rounded-xl {
-    transition: box-shadow 0.3s ease;
-}
-
-/* Subtle button press for all buttons */
-button {
-    transition: all 0.15s ease;
-}
-
-button:active:not(:disabled) {
-    transform: scale(0.98);
-}
-
-/* Name submit button specific */
-#name-submit {
-    border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-#name-submit:active {
-    transform: scale(0.97);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }

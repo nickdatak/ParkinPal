@@ -339,69 +339,6 @@ const Storage = {
     clearAll() {
         localStorage.removeItem(this.STORAGE_KEY);
         this.init();
-    },
-    
-    /**
-     * Generate demo data for demonstration purposes
-     * Creates 7 days of realistic historical data
-     */
-    generateDemoData() {
-        console.log('Generating demo data...');
-        
-        // Realistic scores showing variation and patterns
-        const tremorScores = [4.2, 3.1, 5.8, 4.5, 2.9, 6.3, 3.7];
-        const voiceScores = [3.8, 2.9, 5.2, 4.1, 3.2, 5.9, 3.5];
-        
-        const demoEntries = [];
-        
-        for (let i = 0; i < 7; i++) {
-            const date = new Date();
-            date.setDate(date.getDate() - (6 - i)); // Go back 6 days, then forward
-            date.setHours(10 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 60), 0, 0);
-            
-            const tremorScore = tremorScores[i];
-            const voiceScore = voiceScores[i];
-            
-            // Calculate severity based on score
-            const getSeverity = (score) => {
-                if (score < 3) return 'Low';
-                if (score <= 7) return 'Medium';
-                return 'High';
-            };
-            
-            const entry = {
-                id: Utils.generateId(),
-                date: date.toISOString(),
-                tremor_score: tremorScore,
-                tremor_severity: getSeverity(tremorScore),
-                tremor_raw_data: [], // Empty for demo data
-                voice_score: voiceScore,
-                voice_duration: 4.0 + Math.random() * 2, // 4-6 seconds
-                voice_pauses: Math.floor(Math.random() * 3), // 0-2 pauses
-                voice_variance: 0.03 + Math.random() * 0.05, // 0.03-0.08
-                notes: ''
-            };
-            
-            demoEntries.push(entry);
-        }
-        
-        // Save to localStorage
-        try {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(demoEntries));
-            console.log('Demo data generated successfully:', demoEntries);
-            Utils.showToast('Demo data generated! Reloading...', 'success');
-            
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-            
-            return true;
-        } catch (error) {
-            console.error('Error generating demo data:', error);
-            Utils.showToast('Failed to generate demo data', 'error');
-            return false;
-        }
     }
 };
 
