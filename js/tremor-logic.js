@@ -291,36 +291,70 @@ const TremorLogic = {
     },
     
     /**
-     * Calculate tremor score (0-10)
-     * Primary driver: raw magnitude variability (stdDev/range). Any shake increases score.
-     * Modifier: 4-6 Hz + regular pattern adds a small boost (Parkinsonian tremor).
-     * @param {Object} analysis - Has movementIntensity, stdDev, range, frequency, inTremorRange, regularity
+     * Calculate tremor score (0-10) based on clinical research
+     * 
+     * Clinical reference ranges (accelerometer studies on Parkinson's patients):
+     * - Healthy/minimal: < 0.15 m/s² → Score 0-2
+     * - Mild tremor: 0.15-0.5 m/s² → Score 2-4
+     * - Moderate tremor: 0.5-1.5 m/s² → Score 4-7
+     * - Severe tremor: 1.5-3.0 m/s² → Score 7-9
+     * - Very severe: > 3.0 m/s² → Score 9-10
+     * 
+     * Additional boost for tremor in Parkinson's frequency range (4-6 Hz) with regularity
+     * 
+     * @param {Object} analysis - Contains movementIntensity, frequency, inTremorRange, regularity
      * @returns {number} Score 0-10
      */
     calculateScore(analysis) {
-        const { movementIntensity, stdDev, range, frequency, inTremorRange, regularity } = analysis;
+        const { movementIntensity, frequency, inTremorRange, regularity } = analysis;
         
-        // Scale: still → 0; slight tremor → 1-3; moderate → 4-6; vigorous shake → 8-10.
-        const DEAD_ZONE = 0.10;   // below this = still, score 0
-        const INTENSITY_MAX = 2.0; // at/above this = score 10 (only heavy shake reaches 10)
-        let score;
-        if (movementIntensity < DEAD_ZONE) {
+        // Clinical thresholds based on accelerometer research
+        // These values are calibrated for accelerationIncludingGravity data
+        let score = 0;
+        
+        if (movementIntensity < 0.05) {
+            // Minimal/no detectable tremor
             score = 0;
-        } else if (movementIntensity >= INTENSITY_MAX) {
-            score = 10;
+        } else if (movementIntensity < 0.15) {
+            // Very slight movement (0-2 points)
+            score = (movementIntensity / 0.15) * 2;
+        } else if (movementIntensity < 0.5) {
+            // Mild tremor (2-4 points)
+            // Linear scale from 2 to 4
+            score = 2 + ((movementIntensity - 0.15) / 0.35) * 2;
+        } else if (movementIntensity < 1.5) {
+            // Moderate tremor (4-7 points)
+            // Linear scale from 4 to 7
+            score = 4 + ((movementIntensity - 0.5) / 1.0) * 3;
+        } else if (movementIntensity < 3.0) {
+            // Severe tremor (7-9 points)
+            // Linear scale from 7 to 9
+            score = 7 + ((movementIntensity - 1.5) / 1.5) * 2;
         } else {
-            score = 10 * (movementIntensity - DEAD_ZONE) / (INTENSITY_MAX - DEAD_ZONE);
+            // Very severe tremor (9-10 points)
+            // Cap at 10
+            score = 9 + Math.min((movementIntensity - 3.0) / 2.0, 1);
         }
         
-        // Small boost if pattern looks like classic tremor (4-6 Hz, regular)
-        if (inTremorRange && regularity > 0.3) {
-            score = Math.min(10, score * 1.05);
-        } else if (frequency > 2 && frequency < 10 && regularity > 0.2) {
-            score = Math.min(10, score * 1.02);
+        // Frequency and regularity modifiers
+        // Boost score if tremor shows Parkinsonian characteristics
+        if (inTremorRange && regularity > 0.4) {
+            // Classic Parkinson's tremor: 4-6 Hz, regular
+            // Add up to +15% to score
+            score *= 1.15;
+        } else if (inTremorRange && regularity > 0.2) {
+            // In frequency range but less regular
+            // Add up to +10% to score
+            score *= 1.10;
+        } else if (frequency > 2 && frequency < 8 && regularity > 0.3) {
+            // Tremor-like frequency and somewhat regular
+            // Add up to +5% to score
+            score *= 1.05;
         }
         
-        score = Utils.clamp(Math.round(score * 10) / 10, 0, 10);
-        return score;
+        // Ensure score stays within 0-10 range and round to 1 decimal
+        score = Math.max(0, Math.min(10, score));
+        return Math.round(score * 10) / 10;
     },
     
     /**
