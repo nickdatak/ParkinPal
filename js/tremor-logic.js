@@ -300,10 +300,9 @@ const TremorLogic = {
     calculateScore(analysis) {
         const { movementIntensity, stdDev, range, frequency, inTremorRange, regularity } = analysis;
         
-        // Rescaled from runtime evidence: still phone ~0.08-0.09 intensity, crazy shake ~0.45.
-        // Dead zone so still → 0; linear map so crazy shake → 8-10.
-        const DEAD_ZONE = 0.10;   // below this = still, score 0 (covers ~0.08-0.09)
-        const INTENSITY_MAX = 0.5; // at/above this = score 10 (observed "crazy shake" ~0.45)
+        // Scale: still → 0; slight tremor → 1-3; moderate → 4-6; vigorous shake → 8-10.
+        const DEAD_ZONE = 0.10;   // below this = still, score 0
+        const INTENSITY_MAX = 2.0; // at/above this = score 10 (only heavy shake reaches 10)
         let score;
         if (movementIntensity < DEAD_ZONE) {
             score = 0;
