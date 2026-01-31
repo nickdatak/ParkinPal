@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#1E40AF">
+    <title>ParkinPal - Parkinson's Symptom Tracker</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            light: '#3B82F6',
+                            DEFAULT: '#1E40AF',
+                            dark: '#1E3A8A'
+                        },
+                        accent: {
+                            light: '#10B981',
+                            DEFAULT: '#059669',
+                            dark: '#047857'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50"></div>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 hidden">
+        <div class="bg-white rounded-xl p-6 flex flex-col items-center">
+            <div class="spinner"></div>
+            <p id="loading-text" class="mt-4 text-gray-700">Loading...</p>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div class="max-w-md mx-auto min-h-screen flex flex-col pb-24">
+        
+        <!-- Header -->
+        <header class="bg-primary text-white p-4 flex items-center justify-between sticky top-0 z-30">
+            <button id="analyse-btn" class="bg-accent-light hover:bg-accent px-4 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px]">
+                Analyse Data
+            </button>
+            <h1 class="text-xl font-bold">ParkinPal</h1>
+            <div class="w-24"></div> <!-- Spacer for centering -->
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto">
+            
+            <!-- Welcome Section -->
+            <section id="welcome" class="section p-6">
+                <div class="text-center mb-8">
+                    <div class="w-20 h-20 bg-primary-light rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Welcome to ParkinPal</h2>
+                    <p class="text-gray-600">Your personal Parkinson's symptom tracker</p>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                    <h3 class="font-semibold text-gray-800 mb-3">About This App</h3>
+                    <p class="text-gray-600 text-sm leading-relaxed">
+                        ParkinPal was created to help people living with Parkinson's disease track their symptoms over time. 
+                        By regularly measuring tremor intensity and voice patterns, you can share meaningful data with your 
+                        healthcare provider to help optimize your treatment plan. This app is designed to be simple, 
+                        private, and empowering.
+                    </p>
+                </div>
+                
+                <div class="bg-blue-50 rounded-xl p-6 mb-6 border border-blue-100">
+                    <h3 class="font-semibold text-primary mb-3">A Personal Note</h3>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        Living with Parkinson's means facing daily challenges that others may not see. Small changes in 
+                        tremor or voice can indicate important shifts in your condition. This app helps you capture those 
+                        moments objectively, giving you and your doctor a clearer picture of your journey. You're not alone 
+                        in this - let's track together.
+                    </p>
+                </div>
+                
+                <!-- Name Input -->
+                <div id="name-input-container" class="bg-white rounded-xl shadow-sm p-6">
+                    <label class="block text-gray-700 font-medium mb-2">What should we call you?</label>
+                    <div class="flex gap-3">
+                        <input 
+                            type="text" 
+                            id="name-input" 
+                            placeholder="Enter your name" 
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none"
+                        >
+                        <button 
+                            id="name-submit" 
+                            class="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg font-medium transition-colors min-h-[44px]"
+                        >
+                            Save
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Greeting (shown after name is saved) -->
+                <div id="greeting-container" class="bg-gradient-to-r from-primary to-primary-light rounded-xl p-6 text-white hidden">
+                    <p class="text-lg">Hello, <span id="user-name" class="font-bold"></span>!</p>
+                    <p class="text-blue-100 text-sm mt-1">Ready to track your symptoms today?</p>
+                </div>
+            </section>
+            
+            <!-- Tremor Test Section -->
+            <section id="tremor-test" class="section p-6 hidden">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-primary-light rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-800">Tremor Test</h2>
+                    <p class="text-gray-600 text-sm mt-1">Hold your phone steady to measure tremor</p>
+                </div>
+                
+                <!-- Instructions -->
+                <div id="tremor-instructions" class="bg-blue-50 rounded-xl p-4 mb-6 border border-blue-100">
+                    <h4 class="font-semibold text-primary mb-2">Instructions:</h4>
+                    <ol class="text-sm text-gray-700 space-y-1 list-decimal list-inside">
+                        <li>Hold your phone in your hand, arm extended</li>
+                        <li>Keep your arm as still as possible</li>
+                        <li>The test will run for 30 seconds</li>
+                        <li>Try to relax and breathe normally</li>
+                    </ol>
+                </div>
+                
+                <!-- Timer Display -->
+                <div id="tremor-timer" class="text-center mb-6 hidden">
+                    <div class="text-5xl font-bold text-primary" id="tremor-countdown">30</div>
+                    <p class="text-gray-500 text-sm">seconds remaining</p>
+                </div>
+                
+                <!-- Real-time Chart -->
+                <div id="tremor-chart-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden">
+                    <canvas id="tremor-chart" height="200"></canvas>
+                </div>
+                
+                <!-- Start Button -->
+                <button id="tremor-start" class="w-full bg-primary hover:bg-primary-dark text-white py-4 rounded-xl font-semibold text-lg transition-colors min-h-[56px]">
+                    Start Tremor Test
+                </button>
+                
+                <!-- Stop Button (hidden initially) -->
+                <button id="tremor-stop" class="w-full bg-red-500 hover:bg-red-600 text-white py-4 rounded-xl font-semibold text-lg transition-colors min-h-[56px] hidden">
+                    Stop Test
+                </button>
+                
+                <!-- Results -->
+                <div id="tremor-results" class="hidden mt-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="font-semibold text-gray-800 mb-4">Test Results</h3>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                                <div id="tremor-score" class="text-3xl font-bold text-primary">0</div>
+                                <div class="text-sm text-gray-500">Score (0-10)</div>
+                            </div>
+                            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                                <div id="tremor-severity" class="text-xl font-semibold text-gray-800">-</div>
+                                <div class="text-sm text-gray-500">Severity</div>
+                            </div>
+                        </div>
+                        <button id="tremor-save" class="w-full bg-accent hover:bg-accent-dark text-white py-3 rounded-lg font-medium transition-colors min-h-[44px]">
+                            Save Results
+                        </button>
+                    </div>
+                    
+                    <!-- Insight Card -->
+                    <div id="tremor-insight" class="bg-gradient-to-r from-accent to-accent-light rounded-xl p-4 mt-4 text-white hidden">
+                        <h4 class="font-semibold mb-2">Daily Insight</h4>
+                        <p id="tremor-insight-text" class="text-sm text-green-50"></p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Voice Test Section -->
+            <section id="voice-test" class="section p-6 hidden">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-800">Voice Test</h2>
+                    <p class="text-gray-600 text-sm mt-1">Read the phrase aloud to analyze your voice</p>
+                </div>
+                
+                <!-- Phrase to Read -->
+                <div class="bg-green-50 rounded-xl p-6 mb-6 border border-green-100">
+                    <h4 class="font-semibold text-accent mb-3">Read this phrase:</h4>
+                    <p class="text-lg text-gray-800 font-medium italic">
+                        "The quick brown fox jumps over the lazy dog"
+                    </p>
+                </div>
+                
+                <!-- Timer Display -->
+                <div id="voice-timer" class="text-center mb-6 hidden">
+                    <div class="text-5xl font-bold text-accent" id="voice-countdown">10</div>
+                    <p class="text-gray-500 text-sm">seconds remaining</p>
+                </div>
+                
+                <!-- Waveform Visualization -->
+                <div id="voice-waveform-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden">
+                    <canvas id="voice-waveform" height="100"></canvas>
+                </div>
+                
+                <!-- Start Button -->
+                <button id="voice-start" class="w-full bg-accent hover:bg-accent-dark text-white py-4 rounded-xl font-semibold text-lg transition-colors min-h-[56px]">
+                    Start Voice Test
+                </button>
+                
+                <!-- Stop Button (hidden initially) -->
+                <button id="voice-stop" class="w-full bg-red-500 hover:bg-red-600 text-white py-4 rounded-xl font-semibold text-lg transition-colors min-h-[56px] hidden">
+                    Stop Recording
+                </button>
+                
+                <!-- Results -->
+                <div id="voice-results" class="hidden mt-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="font-semibold text-gray-800 mb-4">Test Results</h3>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                                <div id="voice-score" class="text-3xl font-bold text-accent">0</div>
+                                <div class="text-sm text-gray-500">Score (0-10)</div>
+                            </div>
+                            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                                <div id="voice-duration" class="text-xl font-semibold text-gray-800">0s</div>
+                                <div class="text-sm text-gray-500">Speaking Time</div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <div id="voice-pauses" class="text-lg font-semibold text-gray-800">0</div>
+                                <div class="text-xs text-gray-500">Pauses Detected</div>
+                            </div>
+                            <div class="text-center p-3 bg-gray-50 rounded-lg">
+                                <div id="voice-variance" class="text-lg font-semibold text-gray-800">0</div>
+                                <div class="text-xs text-gray-500">Volume Variance</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Playback Button -->
+                        <button id="voice-playback" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-medium transition-colors mb-3 min-h-[44px]">
+                            Play Recording
+                        </button>
+                        
+                        <button id="voice-save" class="w-full bg-accent hover:bg-accent-dark text-white py-3 rounded-lg font-medium transition-colors min-h-[44px]">
+                            Save Results
+                        </button>
+                    </div>
+                    
+                    <!-- Insight Card -->
+                    <div id="voice-insight" class="bg-gradient-to-r from-accent to-accent-light rounded-xl p-4 mt-4 text-white hidden">
+                        <h4 class="font-semibold mb-2">Daily Insight</h4>
+                        <p id="voice-insight-text" class="text-sm text-green-50"></p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Trends/Analysis Section -->
+            <section id="trends" class="section p-6 hidden">
+                <div class="text-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-800">Your Trends</h2>
+                    <p class="text-gray-600 text-sm mt-1">Last 7 days of tracking data</p>
+                </div>
+                
+                <!-- Trend Summary -->
+                <div id="trend-summary" class="bg-white rounded-xl shadow-sm p-4 mb-6">
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div id="avg-tremor" class="text-2xl font-bold text-primary">-</div>
+                            <div class="text-xs text-gray-500">Avg Tremor</div>
+                        </div>
+                        <div>
+                            <div id="avg-voice" class="text-2xl font-bold text-accent">-</div>
+                            <div class="text-xs text-gray-500">Avg Voice</div>
+                        </div>
+                        <div>
+                            <div id="trend-direction" class="text-lg font-semibold text-gray-700">-</div>
+                            <div class="text-xs text-gray-500">Trend</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chart -->
+                <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+                    <canvas id="trends-chart" height="200"></canvas>
+                </div>
+                
+                <!-- History List -->
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <h3 class="font-semibold text-gray-800 p-4 border-b">Recent History</h3>
+                    <div id="history-list" class="divide-y">
+                        <!-- History items will be inserted here -->
+                    </div>
+                    <div id="history-empty" class="p-8 text-center text-gray-500 hidden">
+                        <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <p>No data yet. Complete some tests to see your history.</p>
+                    </div>
+                </div>
+                
+                <!-- Generate Report Button -->
+                <button id="generate-report-btn" class="w-full bg-primary hover:bg-primary-dark text-white py-4 rounded-xl font-semibold text-lg transition-colors mt-6 min-h-[56px]">
+                    Generate Doctor Report
+                </button>
+            </section>
+            
+            <!-- Report Section -->
+            <section id="report" class="section p-6 hidden">
+                <div class="text-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-800">Medical Report</h2>
+                    <p class="text-gray-600 text-sm mt-1">AI-generated summary for your doctor</p>
+                </div>
+                
+                <!-- Report Content -->
+                <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                    <div id="report-content" class="prose prose-sm text-gray-700">
+                        <p class="text-gray-400 italic">Click "Generate Report" to create your medical summary.</p>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex gap-3">
+                    <button id="copy-report" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-medium transition-colors min-h-[44px] disabled:opacity-50" disabled>
+                        Copy to Clipboard
+                    </button>
+                    <button id="download-report" class="flex-1 bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium transition-colors min-h-[44px] disabled:opacity-50" disabled>
+                        Download
+                    </button>
+                </div>
+                
+                <!-- Back Button -->
+                <button id="back-to-trends" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-lg font-medium transition-colors mt-4 min-h-[44px]">
+                    Back to Trends
+                </button>
+            </section>
+            
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
+            <div class="max-w-md mx-auto flex">
+                <button id="nav-tremor" class="flex-1 py-4 flex flex-col items-center justify-center text-gray-500 hover:text-primary transition-colors min-h-[72px]">
+                    <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                    </svg>
+                    <span class="text-sm font-medium">Tremor Test</span>
+                </button>
+                <button id="nav-voice" class="flex-1 py-4 flex flex-col items-center justify-center text-gray-500 hover:text-accent transition-colors min-h-[72px]">
+                    <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                    </svg>
+                    <span class="text-sm font-medium">Voice Test</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/tremor-logic.js"></script>
+    <script src="js/tremor-ui.js"></script>
+    <script src="js/voice-logic.js"></script>
+    <script src="js/voice-ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

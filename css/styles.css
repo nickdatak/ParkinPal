@@ -1,0 +1,246 @@
+/* ParkinPal Custom Styles */
+
+/* Base Styles */
+* {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    overscroll-behavior: none;
+}
+
+/* Prevent text selection on interactive elements */
+button, nav {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Spinner Animation */
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #E5E7EB;
+    border-top-color: #3B82F6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Toast Styles */
+.toast {
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease;
+    max-width: 90vw;
+}
+
+.toast-success {
+    background-color: #10B981;
+    color: white;
+}
+
+.toast-error {
+    background-color: #EF4444;
+    color: white;
+}
+
+.toast-info {
+    background-color: #3B82F6;
+    color: white;
+}
+
+.toast-warning {
+    background-color: #F59E0B;
+    color: white;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+/* Section Transitions */
+.section {
+    transition: opacity 0.2s ease;
+}
+
+.section.hidden {
+    display: none;
+}
+
+/* Chart Container */
+#tremor-chart-container,
+#voice-waveform-container {
+    min-height: 200px;
+}
+
+/* History Item */
+.history-item {
+    padding: 16px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.history-item:hover {
+    background-color: #F9FAFB;
+}
+
+.history-item:active {
+    background-color: #F3F4F6;
+}
+
+/* Severity Badge */
+.severity-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.severity-low {
+    background-color: #D1FAE5;
+    color: #065F46;
+}
+
+.severity-medium {
+    background-color: #FEF3C7;
+    color: #92400E;
+}
+
+.severity-high {
+    background-color: #FEE2E2;
+    color: #991B1B;
+}
+
+/* Navigation Active States */
+.nav-active {
+    color: #1E40AF !important;
+}
+
+.nav-active.voice {
+    color: #059669 !important;
+}
+
+/* Pulse Animation for Recording */
+.pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Waveform Canvas */
+#voice-waveform {
+    width: 100%;
+    background: linear-gradient(to bottom, #F0FDF4, #DCFCE7);
+    border-radius: 8px;
+}
+
+/* Report Content Styling */
+#report-content {
+    line-height: 1.7;
+}
+
+#report-content p {
+    margin-bottom: 12px;
+}
+
+#report-content ul {
+    margin-left: 20px;
+    margin-bottom: 12px;
+}
+
+#report-content li {
+    margin-bottom: 6px;
+}
+
+/* Safe Area for iPhone X+ */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    nav {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    main {
+        padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    }
+}
+
+/* Responsive Adjustments */
+@media (min-width: 428px) {
+    .max-w-md {
+        max-width: 428px;
+    }
+}
+
+/* Focus States for Accessibility */
+button:focus-visible,
+input:focus-visible {
+    outline: 2px solid #3B82F6;
+    outline-offset: 2px;
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+    button:hover {
+        background-color: inherit;
+    }
+}
+
+/* Chart.js Responsive */
+canvas {
+    max-width: 100%;
+}
+
+/* Loading State Button */
+button:disabled {
+    cursor: not-allowed;
+}
+
+/* Countdown Animation */
+#tremor-countdown,
+#voice-countdown {
+    transition: transform 0.1s ease;
+}
+
+#tremor-countdown.tick,
+#voice-countdown.tick {
+    transform: scale(1.1);
+}
