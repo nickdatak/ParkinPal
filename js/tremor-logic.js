@@ -280,31 +280,51 @@ const TremorLogic = {
      * @returns {number} Score 0-10
      */
     calculateScore(analysis) {
-        const { frequency, amplitude, regularity, inTremorRange } = analysis;
+        const { frequency, amplitude, peakAmplitude, regularity, inTremorRange } = analysis;
         
-        // Base score from amplitude (normalized to typical tremor amplitudes)
-        // Typical Parkinson's tremor amplitude: 0.01-0.5 m/s²
-        let amplitudeScore = Utils.clamp(amplitude / 0.1, 0, 1) * 5;
+        // Base score from amplitude
+        // When using accelerationIncludingGravity:
+        // - Still phone: ~9.8 m/s² (just gravity)
+        // - Light movement: 10-15 m/s²
+        // - Moderate shake: 15-30 m/s²
+        // - Heavy shake: 30-60 m/s²
+        // - Seizure-level: 60+ m/s²
         
-        // Frequency factor: boost score if in 4-6 Hz range
-        let frequencyFactor = 1;
-        if (inTremorRange) {
-            frequencyFactor = 1.5;
-        } else if (frequency > 1 && frequency < 10) {
-            frequencyFactor = 1.2;
+        // After high-pass filter, typical tremor amplitudes: 0.1-2.0
+        // Vigorous shaking: 5.0-20.0
+        let amplitudeScore = 0;
+        
+        if (amplitude < 0.5) {
+            amplitudeScore = amplitude * 4; // 0-2 points for minimal tremor
+        } else if (amplitude < 2.0) {
+            amplitudeScore = 2 + (amplitude - 0.5) * 2; // 2-5 points for mild tremor
+        } else if (amplitude < 5.0) {
+            amplitudeScore = 5 + (amplitude - 2.0) * 1; // 5-8 points for moderate
+        } else {
+            amplitudeScore = 8 + Math.min(amplitude - 5.0, 2); // 8-10 points for severe
         }
         
-        // Regularity factor: regular tremors indicate pathological tremor
-        const regularityFactor = 0.5 + (regularity * 0.5);
+        // Frequency factor: boost if in Parkinson's range (4-6 Hz)
+        let frequencyFactor = 1.0;
+        if (inTremorRange) {
+            frequencyFactor = 1.3; // Boost for clinical tremor frequency
+        } else if (frequency > 2 && frequency < 8) {
+            frequencyFactor = 1.1; // Slight boost for tremor-like frequencies
+        }
+        
+        // Regularity factor: more regular = more pathological
+        // For testing: any rhythmic shaking should score high
+        const regularityBoost = 1.0 + (regularity * 0.3);
         
         // Calculate final score
-        let score = amplitudeScore * frequencyFactor * regularityFactor;
+        let score = amplitudeScore * frequencyFactor * regularityBoost;
         
-        // Ensure score is in range 0-10
-        score = Utils.clamp(Math.round(score * 10) / 10, 0, 10);
+        // Clamp to 0-10
+        score = Math.max(0, Math.min(10, score));
         
-        return score;
-    },
+        // Round to 1 decimal place
+        return Math.round(score * 10) / 10;
+    },,
     
     /**
      * Get current recording state
