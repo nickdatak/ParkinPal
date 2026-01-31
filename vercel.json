@@ -1,16 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "",
-  "outputDirectory": ".",
   "functions": {
     "api/*.js": {
-      "runtime": "@vercel/node@3.0.0",
       "maxDuration": 60
-    }
-  },
-  "build": {
-    "env": {
-      "NODE_VERSION": "24"
     }
   },
   "rewrites": [
