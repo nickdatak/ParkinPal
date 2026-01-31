@@ -288,6 +288,7 @@ const TremorUI = {
         
         try {
             const insight = await API.getDailyInsight(
+                'tremor',
                 entry.tremor_score,
                 entry.voice_score
             );

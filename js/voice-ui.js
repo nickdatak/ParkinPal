@@ -681,6 +681,7 @@ const VoiceUI = {
         
         try {
             const insight = await API.getDailyInsight(
+                'voice',
                 entry.tremor_score,
                 entry.voice_score
             );

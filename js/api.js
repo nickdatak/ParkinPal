@@ -320,13 +320,19 @@ FORMATTING: Use **double asterisks** for key terms (e.g. **Average tremor**, **O
     
     /**
      * Get daily insight for a test result (2-sentence summary)
-     * Uses Manus first, then Gemini, then scripted fallback
-     * @param {number|null} tremorScore - Tremor score (0-10)
-     * @param {number|null} voiceScore - Voice score (0-10)
+     * Separated by test type: tremor or voice
+     * @param {'tremor'|'voice'} type - Which test was completed
+     * @param {number|null} tremorScore - Tremor score (0-10), for tremor insights
+     * @param {number|null} voiceScore - Voice score (0-10), for voice insights
      * @returns {Promise<string>} Insight text
      */
-    async getDailyInsight(tremorScore, voiceScore) {
-        const prompt = `Based on today's Parkinson's symptom tracking: tremor score ${tremorScore ?? 'not measured'}/10, voice score ${voiceScore ?? 'not measured'}/10 (0-2 minimal, 3-5 moderate, 6-10 severe). Write exactly 2 sentences: (1) a brief summary of how the scores look today, (2) one practical tip or encouragement. Be warm and supportive. Output ONLY the 2 sentences, nothing else.`;
+    async getDailyInsight(type, tremorScore, voiceScore) {
+        let prompt;
+        if (type === 'tremor') {
+            prompt = `Based on today's Parkinson's tremor test: score ${tremorScore ?? 'N/A'}/10 (0-2 minimal, 3-5 moderate, 6-10 severe). Write exactly 2 sentences: (1) a brief summary of how the tremor levels look today, (2) one practical tip or encouragement for tremor management. Be warm and supportive. Output ONLY the 2 sentences, nothing else.`;
+        } else {
+            prompt = `Based on today's Parkinson's voice test: score ${voiceScore ?? 'N/A'}/10 (0-2 minimal, 3-5 moderate, 6-10 severe). Write exactly 2 sentences: (1) a brief summary of how the voice/speech looks today, (2) one practical tip or encouragement for voice/speech. Be warm and supportive. Output ONLY the 2 sentences, nothing else.`;
+        }
         
         try {
             const insight = await this.callManusAI(prompt);
@@ -338,26 +344,35 @@ FORMATTING: Use **double asterisks** for key terms (e.g. **Average tremor**, **O
         }
         
         // Fallback insight when AI unavailable
-        return this.getInsightFallback(tremorScore, voiceScore);
+        return this.getInsightFallback(type, tremorScore, voiceScore);
     },
     
     /**
      * Get fallback insight when API is unavailable
+     * @param {'tremor'|'voice'} type - Which test was completed
      * @param {number|null} tremorScore - Tremor score
      * @param {number|null} voiceScore - Voice score
      * @returns {string} Insight text
      */
-    getInsightFallback(tremorScore, voiceScore) {
-        const avgScore = [tremorScore, voiceScore]
-            .filter(s => s !== null)
-            .reduce((a, b, _, arr) => a + b / arr.length, 0);
-        
-        if (avgScore <= 3) {
-            return "Great results today! Your symptoms appear well-controlled. Keep up your routine and stay active.";
-        } else if (avgScore <= 6) {
-            return "Thanks for tracking today. Remember that consistency helps your doctor see patterns. Try some gentle stretching.";
+    getInsightFallback(type, tremorScore, voiceScore) {
+        if (type === 'tremor') {
+            const score = tremorScore ?? 5;
+            if (score <= 3) {
+                return "Great job! Your tremor levels look good today. Keep up with your regular activities and stay hydrated.";
+            } else if (score <= 6) {
+                return "Thanks for tracking today. Consider some gentle stretching and take breaks during tasks requiring fine motor control.";
+            } else {
+                return "We captured important tremor data today. Try relaxation techniques and ensure you're following your medication schedule.";
+            }
         } else {
-            return "We captured important data today. This helps your healthcare team understand your symptoms better. Rest well.";
+            const score = voiceScore ?? 5;
+            if (score <= 3) {
+                return "Excellent voice control today! Keep practicing speaking clearly and maintaining good posture while talking.";
+            } else if (score <= 6) {
+                return "Good effort. Try vocal warm-up exercises like humming or reading aloud slowly. Stay hydrated for better voice quality.";
+            } else {
+                return "Your voice data helps your doctor see patterns. Consider speech therapy exercises and remember to speak slowly and deliberately.";
+            }
         }
     },
     
