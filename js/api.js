@@ -118,7 +118,7 @@ const API = {
             return `${dayOfWeek} ${date}: Tremor ${tremor}${severity}, Voice ${voice}${notes}`;
         }).join('\n');
         
-        return `Generate a clinical summary for a neurologist based on Parkinson's symptom tracking data.
+        return `PATIENT DATA:
 
 DAILY MEASUREMENTS (7 days):
 ${dailyData || 'No data recorded.'}
@@ -129,19 +129,18 @@ STATISTICS:
 - Trend: ${trend}
 - Tremor-Voice Correlation: ${correlation}
 
-START YOUR RESPONSE IMMEDIATELY WITH THE SUMMARY. DO NOT OUTPUT ANYTHING BEFORE THE SUMMARY.
+YOUR TASK:
+Your task is to write a clinical summary of the patient's symptoms. You write ONLY the summary you don't write anything before or after it. The summary should strictly follow the following structure:
 
-Write a 150-word clinical summary organized into separate paragraphs for readability. Structure:
+1) 2 sentence overview of all the symptoms with average daily tremor severity (${avgTremor}/10) and average daily voice impairment (${avgVoice}/10).
 
-PARAGRAPH 1 - OVERVIEW: State overall averages and trajectory (2-3 sentences)
+2) If there are any notable outlier days (tremor or voice scores significantly above/below the average), explicitly mention them with dates. If there are not any outliers, mention that as well.
 
-PARAGRAPH 2 - PATTERNS: Identify specific outlier days with dates, variability patterns, and tremor-voice correlation (2-3 sentences)
+3) If voice and tremor significantly differ from each other (e.g., one is much higher/lower than the other, or correlation is ${correlation}), mention that as well.
 
-PARAGRAPH 3 - CLINICAL NOTES: What this suggests about medication timing/effectiveness and key discussion points for the neurologist (2-3 sentences)
+Each of the points has to be its own explicit paragraph separated by a line.
 
-Reference patient notes when relevant. DO ONLY THE SUMMARY. DON'T ASK QUESTIONS. WHEN YOU FINISH THE SUMMARY STOP TALKING
-
-FORMATTING: Use **double asterisks** for key terms and section labels (e.g. **Overall trend**, **Outlier days**). Use *single asterisks* for clinical terms and dates (e.g. *moderate variability*, *Jan 25*). Use plain text elsewhere. Make objective observations only.`;
+FORMATTING: Use **double asterisks** for key terms (e.g. **Average tremor**, **Outlier days**). Use *single asterisks* for dates and clinical terms (e.g. *Jan 25*, *moderate correlation*). Make objective observations only.`;
     },
     
     /**
