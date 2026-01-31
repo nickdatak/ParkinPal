@@ -140,8 +140,8 @@ const VoiceUI = {
         
         // Clear canvas with gradient background
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, '#F5F3FF');
-        gradient.addColorStop(1, '#EDE9FE');
+        gradient.addColorStop(0, '#E8F6FC');
+        gradient.addColorStop(1, '#D4EFFA');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
         
@@ -173,16 +173,16 @@ const VoiceUI = {
         
         ctx.closePath();
         
-        // Fill with purple gradient
+        // Fill with blue gradient
         const waveGradient = ctx.createLinearGradient(0, 0, 0, height);
-        waveGradient.addColorStop(0, '#A78BFA');
-        waveGradient.addColorStop(0.5, '#8B5CF6');
-        waveGradient.addColorStop(1, '#A78BFA');
+        waveGradient.addColorStop(0, '#6CBEED');
+        waveGradient.addColorStop(0.5, '#4BA8D9');
+        waveGradient.addColorStop(1, '#6CBEED');
         ctx.fillStyle = waveGradient;
         ctx.fill();
         
         // Draw center line
-        ctx.strokeStyle = 'rgba(139, 92, 246, 0.3)';
+        ctx.strokeStyle = 'rgba(108, 190, 237, 0.3)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, height / 2);
@@ -210,8 +210,8 @@ const VoiceUI = {
         
         // Clear canvas with gradient background
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, '#F5F3FF');
-        gradient.addColorStop(1, '#EDE9FE');
+        gradient.addColorStop(0, '#E8F6FC');
+        gradient.addColorStop(1, '#D4EFFA');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
         
@@ -252,16 +252,16 @@ const VoiceUI = {
         
         ctx.closePath();
         
-        // Fill with purple gradient
+        // Fill with blue gradient
         const waveGradient = ctx.createLinearGradient(0, 0, 0, height);
-        waveGradient.addColorStop(0, '#A78BFA');
-        waveGradient.addColorStop(0.5, '#8B5CF6');
-        waveGradient.addColorStop(1, '#A78BFA');
+        waveGradient.addColorStop(0, '#6CBEED');
+        waveGradient.addColorStop(0.5, '#4BA8D9');
+        waveGradient.addColorStop(1, '#6CBEED');
         ctx.fillStyle = waveGradient;
         ctx.fill();
         
         // Draw center line
-        ctx.strokeStyle = 'rgba(139, 92, 246, 0.3)';
+        ctx.strokeStyle = 'rgba(108, 190, 237, 0.3)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, height / 2);
@@ -550,13 +550,13 @@ const VoiceUI = {
         
         // Display results
         if (this.elements.score) {
-            this.elements.score.textContent = results.score.toFixed(1);
+        this.elements.score.textContent = results.score.toFixed(1);
         }
         if (this.elements.duration) {
-            this.elements.duration.textContent = `${results.duration}s`;
+        this.elements.duration.textContent = `${results.duration}s`;
         }
         if (this.elements.pauses) {
-            this.elements.pauses.textContent = results.pauses;
+        this.elements.pauses.textContent = results.pauses;
         }
         
         // Display speaking rate and word count if available
@@ -580,7 +580,7 @@ const VoiceUI = {
         
         // Set score color
         if (this.elements.score) {
-            this.elements.score.className = `text-3xl font-bold ${this.getScoreColorClass(results.score)}`;
+        this.elements.score.className = `text-3xl font-bold ${this.getScoreColorClass(results.score)}`;
         }
         
         Utils.showToast('Test complete!', 'success');

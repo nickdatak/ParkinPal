@@ -253,7 +253,6 @@
                 
                 <div class="text-center mb-6">
                     <h2 class="text-3xl text-gray-800">Voice Test</h2>
-                    <p class="text-gray-600 text-sm mt-1">Read the phrase aloud to analyze your voice</p>
                 </div>
                 
                 <!-- Phrase to Read -->
@@ -261,7 +260,6 @@
                     <h4 class="text-gray-800 mb-3">Read this phrase:</h4>
                     <p class="text-lg text-gray-800 font-medium italic">
                 <div class="bg-violet-50 rounded-xl p-6 mb-6 border border-violet-100">
-                    <h4 class="font-semibold text-violet-600 mb-3">Read this phrase:</h4>
                     <p id="voice-target-phrase" class="text-lg text-gray-800 font-medium italic">
                         "The quick brown fox jumps over the lazy dog"
                     </p>
@@ -271,7 +269,7 @@
                 <div id="voice-transcript-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden border border-gray-100">
                     <div class="flex items-center justify-between mb-2">
                         <h4 class="font-medium text-gray-700 text-sm">What we heard:</h4>
-                        <span id="voice-transcript-word-count" class="text-xs text-violet-600 font-medium">0 words</span>
+                        <span id="voice-transcript-word-count" class="text-xs text-gray-800 font-medium">0 words</span>
                     </div>
                     <p id="voice-transcript-text" class="text-gray-600 text-sm min-h-[40px]">Listening...</p>
                     <p id="voice-speech-not-supported" class="text-amber-600 text-xs hidden">
@@ -283,16 +281,16 @@
                 <div id="voice-soundwave-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden border border-gray-100">
                     <div class="flex items-center justify-between mb-2">
                         <h4 class="font-medium text-gray-700 text-sm">Voice Recording</h4>
-                        <span id="voice-soundwave-duration" class="text-xs text-violet-600 font-medium">0.0s</span>
+                        <span id="voice-soundwave-duration" class="text-xs text-gray-800 font-medium">0.0s</span>
                     </div>
-                    <canvas id="voice-soundwave" class="w-full h-20 rounded-lg" height="80" style="background: linear-gradient(180deg, #F5F3FF 0%, #EDE9FE 100%);"></canvas>
+                    <canvas id="voice-soundwave" class="w-full h-20 rounded-lg" height="80" style="background: linear-gradient(180deg, #E8F6FC 0%, #D4EFFA 100%);"></canvas>
                 </div>
                 
                 <!-- Live Transcript (shown during recording) -->
                 <div id="voice-transcript-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden border border-gray-100">
                     <div class="flex items-center justify-between mb-2">
                         <h4 class="font-medium text-gray-700 text-sm">What we heard:</h4>
-                        <span id="voice-transcript-word-count" class="text-xs text-violet-600 font-medium">0 words</span>
+                        <span id="voice-transcript-word-count" class="text-xs text-gray-800 font-medium">0 words</span>
                     </div>
                     <p id="voice-transcript-text" class="text-gray-600 text-sm min-h-[40px]">Listening...</p>
                     <p id="voice-speech-not-supported" class="text-amber-600 text-xs hidden">
@@ -304,9 +302,9 @@
                 <div id="voice-soundwave-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden border border-gray-100">
                     <div class="flex items-center justify-between mb-2">
                         <h4 class="font-medium text-gray-700 text-sm">Voice Recording</h4>
-                        <span id="voice-soundwave-duration" class="text-xs text-violet-600 font-medium">0.0s</span>
+                        <span id="voice-soundwave-duration" class="text-xs text-gray-800 font-medium">0.0s</span>
                     </div>
-                    <canvas id="voice-soundwave" class="w-full h-20 rounded-lg" height="80" style="background: linear-gradient(180deg, #F5F3FF 0%, #EDE9FE 100%);"></canvas>
+                    <canvas id="voice-soundwave" class="w-full h-20 rounded-lg" height="80" style="background: linear-gradient(180deg, #E8F6FC 0%, #D4EFFA 100%);"></canvas>
                 </div>
                 
                 <!-- Timer Display -->
@@ -355,22 +353,22 @@
                         <!-- Speaking Rate & Word Count (shown if speech recognition available) -->
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="text-center p-3 bg-violet-50 rounded-lg">
-                                <div id="voice-speaking-rate" class="text-lg font-semibold text-violet-700">0 WPM</div>
+                                <div id="voice-speaking-rate" class="text-lg font-semibold text-gray-800">0 WPM</div>
                                 <div class="text-xs text-gray-500">Speaking Rate</div>
                             </div>
                             <div class="text-center p-3 bg-violet-50 rounded-lg">
-                                <div id="voice-word-count" class="text-lg font-semibold text-violet-700">0</div>
+                                <div id="voice-word-count" class="text-lg font-semibold text-gray-800">0</div>
                                 <div class="text-xs text-gray-500">Words Detected</div>
                         </div>
                         
                         <!-- Speaking Rate & Word Count (shown if speech recognition available) -->
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="text-center p-3 bg-violet-50 rounded-lg">
-                                <div id="voice-speaking-rate" class="text-lg font-semibold text-violet-700">0 WPM</div>
+                                <div id="voice-speaking-rate" class="text-lg font-semibold text-gray-800">0 WPM</div>
                                 <div class="text-xs text-gray-500">Speaking Rate</div>
                             </div>
                             <div class="text-center p-3 bg-violet-50 rounded-lg">
-                                <div id="voice-word-count" class="text-lg font-semibold text-violet-700">0</div>
+                                <div id="voice-word-count" class="text-lg font-semibold text-gray-800">0</div>
                                 <div class="text-xs text-gray-500">Words Detected</div>
                             </div>
                         </div>
@@ -388,7 +386,7 @@
                     <!-- Insight Card -->
                     <div id="voice-insight" class="bg-gradient-to-r from-lavender-400 to-lavender-500 rounded-xl p-4 mt-4 text-white hidden">
                         <h4 class="mb-2">Daily Insight</h4>
-                        <p id="voice-insight-text" class="text-sm text-lavender-100"></p>
+                        <p id="voice-insight-text" class="text-sm text-white"></p>
                     </div>
                 </div>
             </section>
