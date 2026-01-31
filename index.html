@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#1E40AF">
+    <meta name="theme-color" content="#8B5CF6">
     <title>ParkinPal - Parkinson's Symptom Tracker</title>
+    
+    <!-- Google Fonts - Nunito -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -14,6 +19,9 @@
         tailwind.config = {
             theme: {
                 extend: {
+                    fontFamily: {
+                        'sans': ['Nunito', 'system-ui', 'sans-serif'],
+                    },
                     colors: {
                         primary: {
                             light: '#3B82F6',
@@ -24,6 +32,15 @@
                             light: '#10B981',
                             DEFAULT: '#000000',
                             dark: '#047857'
+                        },
+                        lavender: {
+                            50: '#F5F3FF',
+                            100: '#EDE9FE',
+                            200: '#DDD6FE',
+                            300: '#C4B5FD',
+                            400: '#A78BFA',
+                            500: '#8B5CF6',
+                            600: '#7C3AED'
                         }
                     }
                 }
@@ -37,7 +54,10 @@
     <!-- Custom Styles -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="min-h-screen bg-white">
+    <!-- Background Gradient -->
+    <div class="fixed inset-0 z-0 pointer-events-none" style="background: linear-gradient(180deg, rgba(199, 183, 255, 0.4) 0%, rgba(167, 139, 250, 0.25) 20%, rgba(221, 214, 254, 0.15) 40%, rgba(255,255,255,0) 70%);"></div>
+    
     <!-- Toast Container -->
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50"></div>
     
@@ -50,82 +70,126 @@
     </div>
 
     <!-- App Container -->
-    <div class="max-w-md mx-auto min-h-screen flex flex-col pb-24">
+    <div class="max-w-md mx-auto min-h-screen flex flex-col relative z-10">
         
         <!-- Header -->
-        <header class="bg-primary text-white p-4 flex items-center justify-between sticky top-0 z-30">
-            <button id="analyse-btn" class="bg-accent-light hover:bg-accent px-4 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px]">
+        <header class="text-gray-700 p-4 flex items-center justify-between sticky top-0 z-30 bg-transparent">
+            <button id="analyse-btn" class="bg-white/80 hover:bg-white px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm hover:shadow min-h-[44px] text-lavender-600">
                 Analyse Data
             </button>
-            <h1 class="text-xl font-bold">ParkinPal</h1>
+            <h1 class="text-xl font-bold text-lavender-600">ParkinPal</h1>
             <div class="w-24"></div> <!-- Spacer for centering -->
         </header>
 
         <!-- Main Content Area -->
         <main class="flex-1 overflow-y-auto">
             
-            <!-- Welcome Section -->
-            <section id="welcome" class="section p-6">
+            <!-- Welcome Section (Name Input) -->
+            <section id="welcome" class="section p-6 flex flex-col items-center justify-center min-h-[70vh]">
                 <div class="text-center mb-8">
-                    <div class="w-20 h-20 bg-primary-light rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                        </svg>
+                    <!-- Smiley Face with Gradient Shadow -->
+                    <div class="relative mx-auto mb-6 w-28 h-28">
+                        <!-- Gradient shadow/glow behind face -->
+                        <div class="absolute inset-0 rounded-full bg-gradient-to-br from-lavender-300/50 to-lavender-400/30 blur-xl scale-110"></div>
+                        <!-- Face container -->
+                        <div class="relative w-28 h-28 rounded-full bg-white flex items-center justify-center shadow-lg">
+                            <svg class="w-20 h-20" viewBox="0 0 100 100" fill="none">
+                                <!-- Happy squinting eyes -->
+                                <path d="M28 42 Q35 35 42 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                                <path d="M58 42 Q65 35 72 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                                <!-- Curved smile -->
+                                <path d="M30 58 Q50 78 70 58" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                            </svg>
+                        </div>
                     </div>
-                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Welcome to TEST TEST TEST</h2>
-                    <p class="text-gray-600">Your personal Parkinson's symptom tracker</p>
-                </div>
-                
-                <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-                    <h3 class="font-semibold text-gray-800 mb-3">About This App</h3>
-                    <p class="text-gray-600 text-sm leading-relaxed">
-                        ParkinPal was created to help people living with Parkinson's disease track their symptoms over time. 
-                        By regularly measuring tremor intensity and voice patterns, you can share meaningful data with your 
-                        healthcare provider to help optimize your treatment plan. This app is designed to be simple, 
-                        private, and empowering.
-                    </p>
-                </div>
-                
-                <div class="bg-blue-50 rounded-xl p-6 mb-6 border border-blue-100">
-                    <h3 class="font-semibold text-primary mb-3">A Personal Note</h3>
-                    <p class="text-gray-700 text-sm leading-relaxed">
-                        Living with Parkinson's means facing daily challenges that others may not see. Small changes in 
-                        tremor or voice can indicate important shifts in your condition. This app helps you capture those 
-                        moments objectively, giving you and your doctor a clearer picture of your journey. You're not alone 
-                        in this - let's track together.
-                    </p>
+                    <h2 class="text-2xl font-semibold text-gray-800">Hey, I'm ParkinPal,</h2>
+                    <p class="text-xl text-gray-600 mt-1">what's your name?</p>
                 </div>
                 
                 <!-- Name Input -->
-                <div id="name-input-container" class="bg-white rounded-xl shadow-sm p-6">
-                    <label class="block text-gray-700 font-medium mb-2">What should we call you?</label>
-                    <div class="flex gap-3">
-                        <input 
-                            type="text" 
-                            id="name-input" 
-                            placeholder="Enter your name" 
-                            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none"
-                        >
-                        <button 
-                            id="name-submit" 
-                            class="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg font-medium transition-colors min-h-[44px]"
-                        >
-                            Save
-                        </button>
+                <div class="w-full max-w-sm">
+                    <input 
+                        type="text" 
+                        id="name-input" 
+                        placeholder="Enter your name" 
+                        class="w-full px-4 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-lavender-300 focus:border-lavender-300 outline-none text-center text-lg mb-4 shadow-sm"
+                    >
+                    <button 
+                        id="name-submit" 
+                        class="w-full bg-white hover:bg-gray-50 text-gray-800 px-6 py-4 rounded-2xl font-semibold text-lg transition-all shadow-md hover:shadow-lg min-h-[56px] active:scale-[0.98] active:shadow-sm border border-gray-200"
+                    >
+                        Continue
+                    </button>
+                </div>
+            </section>
+            
+            <!-- Greeting Section (Shown after name is entered) -->
+            <section id="greeting" class="section p-6 hidden flex flex-col min-h-[85vh]">
+                <!-- Top content - centered -->
+                <div class="flex-1 flex flex-col items-center justify-center">
+                    <div class="text-center mb-10">
+                        <!-- Smiley Face with Gradient Shadow -->
+                        <div class="relative mx-auto mb-6 w-28 h-28">
+                            <!-- Gradient shadow/glow behind face -->
+                            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-lavender-300/50 to-lavender-400/30 blur-xl scale-110"></div>
+                            <!-- Face container -->
+                            <div class="relative w-28 h-28 rounded-full bg-white flex items-center justify-center shadow-lg">
+                                <svg class="w-20 h-20" viewBox="0 0 100 100" fill="none">
+                                    <!-- Happy squinting eyes -->
+                                    <path d="M28 42 Q35 35 42 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                                    <path d="M58 42 Q65 35 72 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                                    <!-- Curved smile -->
+                                    <path d="M30 58 Q50 78 70 58" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                                </svg>
+                            </div>
+                        </div>
+                        
+                        <!-- Greeting Text -->
+                        <h2 id="greeting-heading" class="text-2xl font-semibold text-gray-800">Hey <span id="user-name" class="text-lavender-600"></span></h2>
+                        <p id="greeting-subtext" class="text-xl text-gray-600 mt-1">great meeting you</p>
                     </div>
                 </div>
                 
-                <!-- Greeting (shown after name is saved) -->
-                <div id="greeting-container" class="bg-gradient-to-r from-primary to-primary-light rounded-xl p-6 text-white hidden">
-                    <p class="text-lg">Hello, <span id="user-name" class="font-bold"></span>!</p>
-                    <p class="text-blue-100 text-sm mt-1">Ready to track your symptoms today?</p>
+                <!-- Bottom buttons - pinned to bottom -->
+                <div class="w-full max-w-sm mx-auto pb-4">
+                    <p class="text-gray-500 mb-4 text-center">Select a test</p>
+                    
+                    <div class="space-y-3">
+                        <button 
+                            id="greeting-tremor-btn" 
+                            class="test-btn w-full bg-white hover:bg-gray-50 text-gray-800 py-5 rounded-2xl font-semibold text-lg transition-all shadow-md hover:shadow-lg min-h-[108px] flex items-center justify-center gap-3 active:scale-[0.98] active:shadow-sm border border-gray-200"
+                        >
+                            <svg class="w-6 h-6 text-lavender-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+                            </svg>
+                            <span>Tremor Test</span>
+                        </button>
+                        
+                        <button 
+                            id="greeting-voice-btn" 
+                            class="test-btn w-full bg-white hover:bg-gray-50 text-gray-800 py-5 rounded-2xl font-semibold text-lg transition-all shadow-md hover:shadow-lg min-h-[108px] flex items-center justify-center gap-3 active:scale-[0.98] active:shadow-sm border border-gray-200"
+                        >
+                            <svg class="w-6 h-6 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                            </svg>
+                            <span>Voice Test</span>
+                        </button>
+                    </div>
                 </div>
             </section>
             
             <!-- Tremor Test Section -->
             <section id="tremor-test" class="section p-6 hidden">
+                <!-- Back Button -->
+                <button id="tremor-back" class="flex items-center text-lavender-600 hover:text-lavender-700 mb-4 font-medium transition-colors">
+                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Back
+                </button>
+                
                 <div class="text-center mb-6">
-                    <div class="w-16 h-16 bg-primary-light rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div class="w-16 h-16 bg-gradient-to-r from-lavender-500 to-lavender-600 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
                         </svg>
@@ -135,8 +199,8 @@
                 </div>
                 
                 <!-- Instructions -->
-                <div id="tremor-instructions" class="bg-blue-50 rounded-xl p-4 mb-6 border border-blue-100">
-                    <h4 class="font-semibold text-primary mb-2">Instructions:</h4>
+                <div id="tremor-instructions" class="bg-lavender-50 rounded-xl p-4 mb-6 border border-lavender-100">
+                    <h4 class="font-semibold text-lavender-600 mb-2">Instructions:</h4>
                     <ol class="text-sm text-gray-700 space-y-1 list-decimal list-inside">
                         <li>Hold your phone in your hand, arm extended</li>
                         <li>Keep your arm as still as possible</li>
@@ -147,7 +211,7 @@
                 
                 <!-- Timer Display -->
                 <div id="tremor-timer" class="text-center mb-6 hidden">
-                    <div class="text-5xl font-bold text-primary" id="tremor-countdown">30</div>
+                    <div class="text-5xl font-bold text-lavender-600" id="tremor-countdown">30</div>
                     <p class="text-gray-500 text-sm">seconds remaining</p>
                 </div>
                 
@@ -157,7 +221,7 @@
                 </div>
                 
                 <!-- Start Button -->
-                <button id="tremor-start" class="w-full bg-primary hover:bg-primary-dark text-white py-4 rounded-xl font-semibold text-lg transition-colors min-h-[56px]">
+                <button id="tremor-start" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-4 rounded-xl font-semibold text-lg transition-all shadow-md hover:shadow-lg min-h-[56px] active:scale-[0.98] active:shadow-sm border border-gray-200">
                     Start Tremor Test
                 </button>
                 
@@ -172,7 +236,7 @@
                         <h3 class="font-semibold text-gray-800 mb-4">Test Results</h3>
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="text-center p-4 bg-gray-50 rounded-lg">
-                                <div id="tremor-score" class="text-3xl font-bold text-primary">0</div>
+                                <div id="tremor-score" class="text-3xl font-bold text-lavender-600">0</div>
                                 <div class="text-sm text-gray-500">Score (0-10)</div>
                             </div>
                             <div class="text-center p-4 bg-gray-50 rounded-lg">
@@ -180,23 +244,31 @@
                                 <div class="text-sm text-gray-500">Severity</div>
                             </div>
                         </div>
-                        <button id="tremor-save" class="w-full bg-accent hover:bg-accent-dark text-white py-3 rounded-lg font-medium transition-colors min-h-[44px]">
+                        <button id="tremor-save" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg min-h-[44px] active:scale-[0.98] active:shadow-sm border border-gray-200">
                             Save Results
                         </button>
                     </div>
                     
                     <!-- Insight Card -->
-                    <div id="tremor-insight" class="bg-gradient-to-r from-accent to-accent-light rounded-xl p-4 mt-4 text-white hidden">
+                    <div id="tremor-insight" class="bg-gradient-to-r from-lavender-500 to-lavender-600 rounded-xl p-4 mt-4 text-white hidden">
                         <h4 class="font-semibold mb-2">Daily Insight</h4>
-                        <p id="tremor-insight-text" class="text-sm text-green-50"></p>
+                        <p id="tremor-insight-text" class="text-sm text-lavender-100"></p>
                     </div>
                 </div>
             </section>
             
             <!-- Voice Test Section -->
             <section id="voice-test" class="section p-6 hidden">
+                <!-- Back Button -->
+                <button id="voice-back" class="flex items-center text-violet-600 hover:text-violet-700 mb-4 font-medium transition-colors">
+                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Back
+                </button>
+                
                 <div class="text-center mb-6">
-                    <div class="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div class="w-16 h-16 bg-gradient-to-r from-violet-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
                         </svg>
@@ -206,8 +278,8 @@
                 </div>
                 
                 <!-- Phrase to Read -->
-                <div class="bg-green-50 rounded-xl p-6 mb-6 border border-green-100">
-                    <h4 class="font-semibold text-accent mb-3">Read this phrase:</h4>
+                <div class="bg-violet-50 rounded-xl p-6 mb-6 border border-violet-100">
+                    <h4 class="font-semibold text-violet-600 mb-3">Read this phrase:</h4>
                     <p class="text-lg text-gray-800 font-medium italic">
                         "The quick brown fox jumps over the lazy dog"
                     </p>
@@ -215,7 +287,7 @@
                 
                 <!-- Timer Display -->
                 <div id="voice-timer" class="text-center mb-6 hidden">
-                    <div class="text-5xl font-bold text-accent" id="voice-countdown">10</div>
+                    <div class="text-5xl font-bold text-violet-600" id="voice-countdown">10</div>
                     <p class="text-gray-500 text-sm">seconds remaining</p>
                 </div>
                 
@@ -225,7 +297,7 @@
                 </div>
                 
                 <!-- Start Button -->
-                <button id="voice-start" class="w-full bg-accent hover:bg-accent-dark text-white py-4 rounded-xl font-semibold text-lg transition-colors min-h-[56px]">
+                <button id="voice-start" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-4 rounded-xl font-semibold text-lg transition-all shadow-md hover:shadow-lg min-h-[56px] active:scale-[0.98] active:shadow-sm border border-gray-200">
                     Start Voice Test
                 </button>
                 
@@ -240,7 +312,7 @@
                         <h3 class="font-semibold text-gray-800 mb-4">Test Results</h3>
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="text-center p-4 bg-gray-50 rounded-lg">
-                                <div id="voice-score" class="text-3xl font-bold text-accent">0</div>
+                                <div id="voice-score" class="text-3xl font-bold text-violet-600">0</div>
                                 <div class="text-sm text-gray-500">Score (0-10)</div>
                             </div>
                             <div class="text-center p-4 bg-gray-50 rounded-lg">
@@ -260,25 +332,33 @@
                         </div>
                         
                         <!-- Playback Button -->
-                        <button id="voice-playback" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-medium transition-colors mb-3 min-h-[44px]">
+                        <button id="voice-playback" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg mb-3 min-h-[44px] active:scale-[0.98] active:shadow-sm border border-gray-200">
                             Play Recording
                         </button>
                         
-                        <button id="voice-save" class="w-full bg-accent hover:bg-accent-dark text-white py-3 rounded-lg font-medium transition-colors min-h-[44px]">
+                        <button id="voice-save" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg min-h-[44px] active:scale-[0.98] active:shadow-sm border border-gray-200">
                             Save Results
                         </button>
                     </div>
                     
                     <!-- Insight Card -->
-                    <div id="voice-insight" class="bg-gradient-to-r from-accent to-accent-light rounded-xl p-4 mt-4 text-white hidden">
+                    <div id="voice-insight" class="bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl p-4 mt-4 text-white hidden">
                         <h4 class="font-semibold mb-2">Daily Insight</h4>
-                        <p id="voice-insight-text" class="text-sm text-green-50"></p>
+                        <p id="voice-insight-text" class="text-sm text-violet-100"></p>
                     </div>
                 </div>
             </section>
             
             <!-- Trends/Analysis Section -->
             <section id="trends" class="section p-6 hidden">
+                <!-- Back Button -->
+                <button id="trends-back" class="flex items-center text-lavender-600 hover:text-lavender-700 mb-4 font-medium transition-colors">
+                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Back
+                </button>
+                
                 <div class="text-center mb-6">
                     <h2 class="text-xl font-bold text-gray-800">Your Trends</h2>
                     <p class="text-gray-600 text-sm mt-1">Last 7 days of tracking data</p>
@@ -288,11 +368,11 @@
                 <div id="trend-summary" class="bg-white rounded-xl shadow-sm p-4 mb-6">
                     <div class="grid grid-cols-3 gap-4 text-center">
                         <div>
-                            <div id="avg-tremor" class="text-2xl font-bold text-primary">-</div>
+                            <div id="avg-tremor" class="text-2xl font-bold text-lavender-600">-</div>
                             <div class="text-xs text-gray-500">Avg Tremor</div>
                         </div>
                         <div>
-                            <div id="avg-voice" class="text-2xl font-bold text-accent">-</div>
+                            <div id="avg-voice" class="text-2xl font-bold text-violet-600">-</div>
                             <div class="text-xs text-gray-500">Avg Voice</div>
                         </div>
                         <div>
@@ -322,13 +402,21 @@
                 </div>
                 
                 <!-- Generate Report Button -->
-                <button id="generate-report-btn" class="w-full bg-primary hover:bg-primary-dark text-white py-4 rounded-xl font-semibold text-lg transition-colors mt-6 min-h-[56px]">
+                <button id="generate-report-btn" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-4 rounded-xl font-semibold text-lg transition-all shadow-md hover:shadow-lg mt-6 min-h-[56px] active:scale-[0.98] active:shadow-sm border border-gray-200">
                     Generate Doctor Report
                 </button>
             </section>
             
             <!-- Report Section -->
             <section id="report" class="section p-6 hidden">
+                <!-- Back Button -->
+                <button id="report-back" class="flex items-center text-lavender-600 hover:text-lavender-700 mb-4 font-medium transition-colors">
+                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Back
+                </button>
+                
                 <div class="text-center mb-6">
                     <h2 class="text-xl font-bold text-gray-800">Medical Report</h2>
                     <p class="text-gray-600 text-sm mt-1">AI-generated summary for your doctor</p>
@@ -343,39 +431,22 @@
                 
                 <!-- Action Buttons -->
                 <div class="flex gap-3">
-                    <button id="copy-report" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-medium transition-colors min-h-[44px] disabled:opacity-50" disabled>
+                    <button id="copy-report" class="flex-1 bg-white hover:bg-gray-50 text-gray-800 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg min-h-[44px] active:scale-[0.98] active:shadow-sm border border-gray-200 disabled:opacity-50" disabled>
                         Copy to Clipboard
                     </button>
-                    <button id="download-report" class="flex-1 bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-medium transition-colors min-h-[44px] disabled:opacity-50" disabled>
+                    <button id="download-report" class="flex-1 bg-white hover:bg-gray-50 text-gray-800 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg min-h-[44px] active:scale-[0.98] active:shadow-sm border border-gray-200 disabled:opacity-50" disabled>
                         Download
                     </button>
                 </div>
                 
                 <!-- Back Button -->
-                <button id="back-to-trends" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-lg font-medium transition-colors mt-4 min-h-[44px]">
+                <button id="back-to-trends" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg mt-4 min-h-[44px] active:scale-[0.98] active:shadow-sm border border-gray-200">
                     Back to Trends
                 </button>
             </section>
             
         </main>
 
-        <!-- Bottom Navigation -->
-        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
-            <div class="max-w-md mx-auto flex">
-                <button id="nav-tremor" class="flex-1 py-4 flex flex-col items-center justify-center text-gray-500 hover:text-primary transition-colors min-h-[72px]">
-                    <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
-                    </svg>
-                    <span class="text-sm font-medium">Tremor Test</span>
-                </button>
-                <button id="nav-voice" class="flex-1 py-4 flex flex-col items-center justify-center text-gray-500 hover:text-accent transition-colors min-h-[72px]">
-                    <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
-                    </svg>
-                    <span class="text-sm font-medium">Voice Test</span>
-                </button>
-            </div>
-        </nav>
     </div>
 
     <!-- Scripts -->
