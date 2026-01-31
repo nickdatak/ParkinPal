@@ -146,6 +146,9 @@ const TremorLogic = {
     
     /**
      * Analyze recorded data for tremor characteristics
+     * Primary score from raw magnitude variability (std dev / range) so that
+     * any shaking (fast, slow, hard, light) is detected. Frequency/regularity
+     * used as modifiers for 4-6 Hz Parkinsonian tremor.
      * @returns {Object} Analysis results
      */
     analyzeData() {
@@ -163,37 +166,38 @@ const TremorLogic = {
             };
         }
         
-        // Apply high-pass filter to remove gravity/slow movements
+        // 1) Raw magnitude variability = primary movement indicator
+        //    (Still phone ~constant 9.8; any shake = variance)
+        const meanMag = magnitudes.reduce((a, b) => a + b, 0) / magnitudes.length;
+        const variance = magnitudes.reduce((sum, m) => sum + Math.pow(m - meanMag, 2), 0) / magnitudes.length;
+        const stdDev = Math.sqrt(variance);
+        const range = Math.max(...magnitudes) - Math.min(...magnitudes);
+        // Use the larger of stdDev or range/4 as "movement intensity" (range is robust to outliers)
+        const movementIntensity = Math.max(stdDev, range / 4);
+        
+        // 2) High-pass filtered signal for frequency/regularity (4-6 Hz tremor)
         const filtered = this.highPassFilter(magnitudes);
-        
-        // Detect tremor using zero-crossing and amplitude analysis
         const tremorAnalysis = this.detectTremor(filtered);
-
-        console.log('=== TREMOR ANALYSIS DEBUG ===');
-        console.log('Raw magnitudes (first 10):', this.state.magnitudes.slice(0, 10));
-        console.log('Filtered data (first 10):', filtered.slice(0, 10));
-        console.log('Analysis results:', {
-        amplitude: tremorAnalysis.amplitude,
-        peakAmplitude: tremorAnalysis.peakAmplitude,
-        frequency: tremorAnalysis.frequency,
-        regularity: tremorAnalysis.regularity,
-        inTremorRange: tremorAnalysis.inTremorRange,
-        zeroCrossings: tremorAnalysis.zeroCrossings
+        
+        // 3) Score from movement intensity first, then adjust for tremor-like pattern
+        const score = this.calculateScore({
+            movementIntensity,
+            stdDev,
+            range,
+            ...tremorAnalysis
         });
-        console.log('=== END TREMOR ANALYSIS DEBUG ===');
         
-        // Calculate score (0-10)
-        const score = this.calculateScore(tremorAnalysis);
-        
-        // Determine severity
         const severity = Utils.getSeverity(score);
         
         return {
             score,
             severity,
-            rawData: this.state.magnitudes.slice(-500), // Keep last 500 samples for chart
+            rawData: this.state.magnitudes.slice(-500),
             details: {
                 sampleCount: magnitudes.length,
+                movementIntensity,
+                stdDev,
+                range,
                 ...tremorAnalysis
             }
         };
@@ -288,63 +292,38 @@ const TremorLogic = {
     
     /**
      * Calculate tremor score (0-10)
-     * Higher score = more severe tremor
-     * @param {Object} analysis - Tremor analysis results
+     * Primary driver: raw magnitude variability (stdDev/range). Any shake increases score.
+     * Modifier: 4-6 Hz + regular pattern adds a small boost (Parkinsonian tremor).
+     * @param {Object} analysis - Has movementIntensity, stdDev, range, frequency, inTremorRange, regularity
      * @returns {number} Score 0-10
      */
     calculateScore(analysis) {
-
-        console.log('=== SCORE CALCULATION ===');
-        console.log('Input to calculateScore:', analysis);
+        const { movementIntensity, stdDev, range, frequency, inTremorRange, regularity } = analysis;
         
-        const { frequency, amplitude, peakAmplitude, regularity, inTremorRange } = analysis;
-        
-        // Base score from amplitude
-        // When using accelerationIncludingGravity:
-        // - Still phone: ~9.8 m/s² (just gravity)
-        // - Light movement: 10-15 m/s²
-        // - Moderate shake: 15-30 m/s²
-        // - Heavy shake: 30-60 m/s²
-        // - Seizure-level: 60+ m/s²
-        
-        // After high-pass filter, typical tremor amplitudes: 0.1-2.0
-        // Vigorous shaking: 5.0-20.0
-
-        
-        let amplitudeScore = 0;
-        
-        if (amplitude < 0.5) {
-            amplitudeScore = amplitude * 4; // 0-2 points for minimal tremor
-        } else if (amplitude < 2.0) {
-            amplitudeScore = 2 + (amplitude - 0.5) * 2; // 2-5 points for mild tremor
-        } else if (amplitude < 5.0) {
-            amplitudeScore = 5 + (amplitude - 2.0) * 1; // 5-8 points for moderate
+        // Scale: raw magnitude stdDev when still ≈ 0; light shake ~0.2-0.5; hard shake 1-4+
+        // Map movementIntensity (typically 0 to ~5) to 0-10 score
+        let score = 0;
+        if (movementIntensity < 0.1) {
+            score = movementIntensity * 10;           // 0–1: nearly still
+        } else if (movementIntensity < 0.5) {
+            score = 1 + (movementIntensity - 0.1) * 8;  // 1–4.2: light movement
+        } else if (movementIntensity < 1.5) {
+            score = 4.2 + (movementIntensity - 0.5) * 3; // 4.2–7.2: moderate
+        } else if (movementIntensity < 3.0) {
+            score = 7.2 + (movementIntensity - 1.5) * 1.2; // 7.2–9.0: heavy
         } else {
-            amplitudeScore = 8 + Math.min(amplitude - 5.0, 2); // 8-10 points for severe
+            score = 9.0 + Math.min((movementIntensity - 3.0) / 2, 1); // 9–10: very heavy
         }
         
-        // Frequency factor: boost if in Parkinson's range (4-6 Hz)
-        let frequencyFactor = 1.0;
-        if (inTremorRange) {
-            frequencyFactor = 1.3; // Boost for clinical tremor frequency
-        } else if (frequency > 2 && frequency < 8) {
-            frequencyFactor = 1.1; // Slight boost for tremor-like frequencies
+        // Small boost if pattern looks like classic tremor (4-6 Hz, regular)
+        if (inTremorRange && regularity > 0.3) {
+            score = Math.min(10, score * 1.05);
+        } else if (frequency > 2 && frequency < 10 && regularity > 0.2) {
+            score = Math.min(10, score * 1.02);
         }
         
-        // Regularity factor: more regular = more pathological
-        // For testing: any rhythmic shaking should score high
-        const regularityBoost = 1.0 + (regularity * 0.3);
-        
-        // Calculate final score
-        let score = amplitudeScore * frequencyFactor * regularityBoost;
-        
-        // Clamp to 0-10
-        score = Math.max(0, Math.min(10, score));
-
-        console.log('Final score:', score);
-        
-        // Round to 1 decimal place
-        return Math.round(score * 10) / 10;
+        score = Utils.clamp(Math.round(score * 10) / 10, 0, 10);
+        return score;
     },
     
     /**
