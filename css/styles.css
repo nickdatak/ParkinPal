@@ -184,6 +184,20 @@ button {
     margin-bottom: 12px;
 }
 
+#report-content p.report-p {
+    margin-bottom: 14px;
+}
+
+#report-content strong {
+    font-weight: 600;
+    color: #374151;
+}
+
+#report-content em {
+    font-style: italic;
+    color: #4B5563;
+}
+
 #report-content ul {
     margin-left: 20px;
     margin-bottom: 12px;

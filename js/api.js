@@ -129,7 +129,9 @@ STATISTICS:
 - Trend: ${trend}
 - Tremor-Voice Correlation: ${correlation}
 
-Write a 150-word clinical summary as a single paragraph. Include: (1) overall averages and trajectory, (2) specific outlier days with dates, (3) variability patterns, (4) tremor-voice correlation, on daily patterns. If there are some outliers mention them. Reference patient notes when relevant. Use plain text - no markdown, asterisks, bullets, or headers. Make objective observations only.`;
+Write a 150-word clinical summary as a single paragraph. Include: (1) overall averages and trajectory, (2) specific outlier days with dates, (3) variability patterns, (4) tremor-voice correlation, on daily patterns. If there are some outliers mention them. Reference patient notes when relevant.
+
+FORMATTING: Use **double asterisks** for key terms and section labels (e.g. **Overall trend**, **Outlier days**). Use *single asterisks* for clinical terms and dates (e.g. *moderate variability*, *Jan 25*). Use plain text elsewhere. Make objective observations only.`;
     },
     
     /**
@@ -397,18 +399,34 @@ Note: This summary is generated from self-tracked data using a mobile app. Score
     },
     
     /**
-     * Format report text for display
-     * @param {string} text - Raw report text
+     * Format report text for display (markdown-style bold/italic to HTML)
+     * @param {string} text - Raw report text (may contain **bold** and *italic*)
      * @returns {string} HTML formatted report
      */
     formatReport(text) {
-        // Convert line breaks to paragraphs
-        const paragraphs = text.split('\n\n')
+        if (!text || !text.trim()) return '<p class="text-gray-500">No report content.</p>';
+        
+        // Escape HTML to prevent XSS, then convert markdown-style formatting
+        const escapeHtml = (str) => str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        
+        let html = escapeHtml(text);
+        
+        // Convert **bold** to <strong> (greedy, non-overlapping)
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        // Convert *italic* to <em> (single asterisks not part of **)
+        html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+        
+        // Convert line breaks to paragraphs and <br>
+        const paragraphs = html.split(/\n\n+/)
             .filter(p => p.trim())
-            .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+            .map(p => `<p class="report-p">${p.trim().replace(/\n/g, '<br>')}</p>`)
             .join('');
         
-        return paragraphs || `<p>${text}</p>`;
+        return paragraphs || `<p class="report-p">${html}</p>`;
     },
     
     /**
