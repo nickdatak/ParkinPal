@@ -25,7 +25,7 @@ A mobile-first web app for tracking Parkinson's symptoms through tremor detectio
 
 ### AI Medical Reports
 - "Generate Doctor Report" feature
-- Uses Manus AI (primary) with Gemini fallback
+- Uses Manus AI
 - 150-word medical summary covering:
   - Overall trend assessment
   - Key patterns identified
@@ -43,7 +43,7 @@ A mobile-first web app for tracking Parkinson's symptoms through tremor detectio
 - **Styling**: Tailwind CSS (CDN)
 - **Charts**: Chart.js (CDN)
 - **APIs**: DeviceMotion API, Web Audio API
-- **AI**: Manus AI, Google Gemini
+- **AI**: Manus AI
 - **Storage**: LocalStorage
 - **Deployment**: Vercel (with serverless functions)
 
@@ -78,7 +78,6 @@ vercel
 
 3. Set environment variables in Vercel dashboard:
    - `MANUS_API_KEY` - Your Manus AI API key
-   - `GEMINI_API_KEY` - Your Google Gemini API key
 
 ### API Keys
 
@@ -86,10 +85,6 @@ vercel
 1. Sign up at [manus.im](https://manus.im)
 2. Go to Settings > Integrations > API
 3. Generate an API key
-
-#### Google Gemini
-1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
-2. Create a new API key
 
 ## Project Structure
 
@@ -109,8 +104,7 @@ ParkinPal/
 │   ├── charts.js       # Chart.js configuration
 │   └── api.js          # API integration
 ├── api/                # Vercel serverless functions
-│   ├── manus.js        # Manus AI proxy
-│   └── gemini.js       # Gemini proxy
+│   └── manus.js        # Manus AI proxy
 ├── vercel.json         # Vercel configuration
 └── README.md
 ```

@@ -355,7 +355,7 @@ const Storage = {
             date.setDate(date.getDate() - (6 - i));
             date.setHours(10 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 60), 0, 0);
             const tremorScore = tremorScores[i];
-            const voiceScore = voiceScores[i];
+            const voiceScore = parseFloat(Math.round(voiceScores[i]).toFixed(1)); // Round to nearest integer, keep as digit.0
             demoEntries.push({
                 id: Utils.generateId(),
                 date: date.toISOString(),

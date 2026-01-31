@@ -1,19 +1,18 @@
 /**
  * ParkinPal - API Integration
- * Handles calls to Manus AI and Gemini APIs via serverless proxy
+ * Handles calls to Manus AI via serverless proxy
  */
 
 const API = {
     // Configuration
     config: {
         manusEndpoint: '/api/manus',
-        geminiEndpoint: '/api/gemini',
         maxPollAttempts: 30, // 30 attempts * 2 seconds = 60 seconds max
         pollInterval: 2000 // 2 seconds between polls
     },
     
     /**
-     * Generate Doctor Report using Manus AI (with Gemini fallback)
+     * Generate Doctor Report using Manus AI
      * @returns {Promise<string>} Generated report text
      */
     async generateDoctorReport() {
@@ -40,15 +39,7 @@ const API = {
         const prompt = this.buildReportPrompt(reportData);
         
         try {
-            // Try Manus AI first
             let report = await this.callManusAI(prompt);
-            
-            if (!report) {
-                // Fallback to Gemini
-                console.log('Falling back to Gemini...');
-                Utils.showLoading('Trying alternative AI...');
-                report = await this.callGeminiAI(prompt);
-            }
             
             if (!report) {
                 // Use template fallback
@@ -291,32 +282,6 @@ FORMATTING: Use **double asterisks** for key terms (e.g. **Average tremor**, **O
         return null;
     },
     
-    /**
-     * Call Gemini AI API
-     * @param {string} prompt - The prompt to send
-     * @returns {Promise<string|null>} Response text or null on failure
-     */
-    async callGeminiAI(prompt) {
-        try {
-            const response = await fetch(this.config.geminiEndpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt })
-            });
-            
-            if (!response.ok) {
-                console.error('Gemini API failed:', response.status);
-                return null;
-            }
-            
-            const data = await response.json();
-            return data.text || null;
-            
-        } catch (error) {
-            console.error('Gemini API error:', error);
-            return null;
-        }
-    },
     
     /**
      * Get daily insight for a test result (2-sentence summary)
