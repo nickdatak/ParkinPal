@@ -264,6 +264,27 @@
                     </p>
                 </div>
                 
+                <!-- Live Transcript (shown during recording) -->
+                <div id="voice-transcript-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden border border-gray-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="font-medium text-gray-700 text-sm">What we heard:</h4>
+                        <span id="voice-transcript-word-count" class="text-xs text-violet-600 font-medium">0 words</span>
+                    </div>
+                    <p id="voice-transcript-text" class="text-gray-600 text-sm min-h-[40px]">Listening...</p>
+                    <p id="voice-speech-not-supported" class="text-amber-600 text-xs hidden">
+                        Speech recognition not supported in this browser. Speaking rate won't be calculated.
+                    </p>
+                </div>
+                
+                <!-- Soundwave Visualization (persists after recording) -->
+                <div id="voice-soundwave-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden border border-gray-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="font-medium text-gray-700 text-sm">Voice Recording</h4>
+                        <span id="voice-soundwave-duration" class="text-xs text-violet-600 font-medium">0.0s</span>
+                    </div>
+                    <canvas id="voice-soundwave" class="w-full h-20 rounded-lg" height="80" style="background: linear-gradient(180deg, #F5F3FF 0%, #EDE9FE 100%);"></canvas>
+                </div>
+                
                 <!-- Timer Display -->
                 <div id="voice-timer" class="text-center mb-6 hidden">
                     <div class="text-5xl font-bold text-gray-800" id="voice-countdown">10</div>
@@ -299,14 +320,22 @@
                                 <div class="text-sm text-gray-500">Speaking Time</div>
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="mb-4">
                             <div class="text-center p-3 bg-gray-50 rounded-lg">
                                 <div id="voice-pauses" class="text-lg font-semibold text-gray-800">0</div>
                                 <div class="text-xs text-gray-500">Pauses Detected</div>
                             </div>
-                            <div class="text-center p-3 bg-gray-50 rounded-lg">
-                                <div id="voice-variance" class="text-lg font-semibold text-gray-800">0</div>
-                                <div class="text-xs text-gray-500">Volume Variance</div>
+                        </div>
+                        
+                        <!-- Speaking Rate & Word Count (shown if speech recognition available) -->
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="text-center p-3 bg-violet-50 rounded-lg">
+                                <div id="voice-speaking-rate" class="text-lg font-semibold text-violet-700">0 WPM</div>
+                                <div class="text-xs text-gray-500">Speaking Rate</div>
+                            </div>
+                            <div class="text-center p-3 bg-violet-50 rounded-lg">
+                                <div id="voice-word-count" class="text-lg font-semibold text-violet-700">0</div>
+                                <div class="text-xs text-gray-500">Words Detected</div>
                             </div>
                         </div>
                         
