@@ -87,67 +87,110 @@ const API = {
     buildReportPrompt(reportData) {
         const { entries, stats } = reportData;
         
+        // Calculate tremor statistics
         const tremorScores = entries.map(e => e.tremor_score).filter(v => v != null);
+        const avgTremor = stats.avgTremor ?? 'N/A';
+        const minTremor = tremorScores.length ? Math.min(...tremorScores).toFixed(1) : 'N/A';
+        const maxTremor = tremorScores.length ? Math.max(...tremorScores).toFixed(1) : 'N/A';
+        const stdDevTremor = tremorScores.length > 1 ? this.calculateStdDev(tremorScores).toFixed(2) : 'N/A';
+        
+        // Calculate voice statistics
         const voiceScores = entries.map(e => e.voice_score).filter(v => v != null);
-        const tremorMin = tremorScores.length ? Math.min(...tremorScores).toFixed(1) : 'N/A';
-        const tremorMax = tremorScores.length ? Math.max(...tremorScores).toFixed(1) : 'N/A';
-        const voiceMin = voiceScores.length ? Math.min(...voiceScores).toFixed(1) : 'N/A';
-        const voiceMax = voiceScores.length ? Math.max(...voiceScores).toFixed(1) : 'N/A';
+        const avgVoice = stats.avgVoice ?? 'N/A';
+        const minVoice = voiceScores.length ? Math.min(...voiceScores).toFixed(1) : 'N/A';
+        const maxVoice = voiceScores.length ? Math.max(...voiceScores).toFixed(1) : 'N/A';
+        const stdDevVoice = voiceScores.length > 1 ? this.calculateStdDev(voiceScores).toFixed(2) : 'N/A';
         
-        const tremorRange = tremorScores.length ? Math.max(...tremorScores) - Math.min(...tremorScores) : 0;
-        const voiceRange = voiceScores.length ? Math.max(...voiceScores) - Math.min(...voiceScores) : 0;
-        const maxRange = Math.max(tremorRange, voiceRange);
-        const variability = maxRange > 3 ? 'high' : maxRange > 1.5 ? 'moderate' : 'low';
+        // Calculate correlation between tremor and voice
+        const correlation = this.calculateCorrelation(tremorScores, voiceScores);
         
-        const dataLines = entries.map((e, i) => {
-            const d = new Date(e.date);
-            const shortDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        // Trend
+        const trend = stats.trend || 'stable';
+        
+        // Format daily measurements
+        const dailyData = entries.map((e, i) => {
+            const date = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const dayOfWeek = new Date(e.date).toLocaleDateString('en-US', { weekday: 'short' });
             const tremor = e.tremor_score != null ? `${e.tremor_score}/10` : 'N/A';
             const voice = e.voice_score != null ? `${e.voice_score}/10` : 'N/A';
-            return `Day ${i + 1} (${shortDate}): Tremor ${tremor}, Voice ${voice}`;
+            const severity = e.tremor_severity ? ` (${e.tremor_severity})` : '';
+            const notes = e.notes ? ` - "${e.notes}"` : '';
+            return `${dayOfWeek} ${date}: Tremor ${tremor}${severity}, Voice ${voice}${notes}`;
         }).join('\n');
         
-        return `You are a medical AI assistant helping Parkinson's patients communicate symptom patterns to their neurologists.
+        return `Generate a clinical summary for a neurologist based on Parkinson's symptom tracking data.
 
-PATIENT SYMPTOM DATA (Last 7 Days):
-${dataLines || 'No data recorded.'}
+DAILY MEASUREMENTS (7 days):
+${dailyData || 'No data recorded.'}
 
-SUMMARY METRICS:
-- Tremor: Average ${stats.avgTremor ?? 'N/A'}, Range ${tremorMin}-${tremorMax}, Trend ${stats.trend}
-- Voice: Average ${stats.avgVoice ?? 'N/A'}, Range ${voiceMin}-${voiceMax}, Trend ${stats.trend}
-- Variability: ${variability}
+STATISTICS:
+- Tremor: Avg ${avgTremor}/10, Range ${minTremor}-${maxTremor}, StdDev ${stdDevTremor}
+- Voice: Avg ${avgVoice}/10, Range ${minVoice}-${maxVoice}, StdDev ${stdDevVoice}
+- Trend: ${trend}
+- Tremor-Voice Correlation: ${correlation}
 
-CONTEXT:
-- Scores measured via smartphone accelerometer (tremor) and voice analysis
-- Scale: 0-2 = minimal, 3-5 = moderate, 6-10 = severe symptoms
-- Patient is already diagnosed with Parkinson's; this is symptom tracking, not diagnosis
-
-TASK:
-Generate a 150-200 word medical summary for this patient's neurologist. Structure:
-
-1. SYMPTOM OVERVIEW (2-3 sentences)
-   - State average scores and overall trend
-   - Note day-to-day variability level
-
-2. PATTERN ANALYSIS (2-3 sentences)
-   - Identify correlation between tremor and voice scores
-   - Highlight any concerning patterns (e.g., worsening trend, high variability)
-   - Note best/worst days
-
-3. CLINICAL IMPLICATIONS (2-3 sentences)
-   - What might this suggest about medication timing/effectiveness?
-   - Are symptoms stable, improving, or declining?
-
-4. DISCUSSION POINTS (3 bullet points)
-   - Specific, actionable items for doctor-patient conversation
-   - Focus on medication optimization, symptom management
-
-TONE: Professional medical communication, objective and data-focused
-CONSTRAINTS: 
-- Do NOT diagnose conditions
-- Do NOT recommend specific medications or dosage changes
-- Do NOT make treatment decisions
-- DO focus on observable patterns and questions to raise with doctor`;
+Write a 150-word clinical summary as a single paragraph. Include: (1) overall averages and trajectory, (2) specific outlier days with dates, (3) variability patterns, (4) tremor-voice correlation, on daily patterns. If there are some outliers mention them. Reference patient notes when relevant. Use plain text - no markdown, asterisks, bullets, or headers. Make objective observations only.`;
+    },
+    
+    /**
+     * Calculate standard deviation
+     * @param {number[]} values - Array of numbers
+     * @returns {number} Standard deviation
+     */
+    calculateStdDev(values) {
+        if (values.length === 0) return 0;
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const squaredDiffs = values.map(v => Math.pow(v - mean, 2));
+        const variance = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
+        return Math.sqrt(variance);
+    },
+    
+    /**
+     * Calculate correlation between tremor and voice scores
+     * @param {number[]} tremorScores - Tremor scores
+     * @param {number[]} voiceScores - Voice scores
+     * @returns {string} Correlation description
+     */
+    calculateCorrelation(tremorScores, voiceScores) {
+        if (tremorScores.length < 2 || voiceScores.length < 2) return 'insufficient data';
+        
+        // Align arrays (use only indices where both exist)
+        const paired = [];
+        const minLen = Math.min(tremorScores.length, voiceScores.length);
+        for (let i = 0; i < minLen; i++) {
+            if (tremorScores[i] != null && voiceScores[i] != null) {
+                paired.push({ tremor: tremorScores[i], voice: voiceScores[i] });
+            }
+        }
+        
+        if (paired.length < 2) return 'insufficient data';
+        
+        // Calculate Pearson correlation
+        const n = paired.length;
+        const tremorMean = paired.reduce((sum, p) => sum + p.tremor, 0) / n;
+        const voiceMean = paired.reduce((sum, p) => sum + p.voice, 0) / n;
+        
+        let numerator = 0;
+        let tremorSumSq = 0;
+        let voiceSumSq = 0;
+        
+        for (const p of paired) {
+            const tremorDiff = p.tremor - tremorMean;
+            const voiceDiff = p.voice - voiceMean;
+            numerator += tremorDiff * voiceDiff;
+            tremorSumSq += tremorDiff * tremorDiff;
+            voiceSumSq += voiceDiff * voiceDiff;
+        }
+        
+        const denominator = Math.sqrt(tremorSumSq * voiceSumSq);
+        const r = denominator === 0 ? 0 : numerator / denominator;
+        
+        // Describe correlation
+        const absR = Math.abs(r);
+        if (absR > 0.7) return `strong positive (r=${r.toFixed(2)})`;
+        if (absR > 0.4) return `moderate positive (r=${r.toFixed(2)})`;
+        if (absR > 0.2) return `weak positive (r=${r.toFixed(2)})`;
+        return `minimal (r=${r.toFixed(2)})`;
     },
     
     /**
