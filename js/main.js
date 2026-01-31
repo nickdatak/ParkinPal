@@ -225,13 +225,6 @@ const App = {
             Utils.downloadTextFile(content, `ParkinPal-Report-${date}.txt`);
             Utils.showToast('Report downloaded!', 'success');
         });
-        
-        // Demo Data button
-        document.getElementById('demo-data-btn').addEventListener('click', () => {
-            if (confirm('Generate demo data? This will replace any existing data.')) {
-                Storage.generateDemoData();
-            }
-        });
     },
     
     /**
