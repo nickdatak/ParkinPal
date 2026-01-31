@@ -87,28 +87,67 @@ const API = {
     buildReportPrompt(reportData) {
         const { entries, stats } = reportData;
         
-        const dataPoints = entries.map(e => 
-            `Date: ${e.date}, Tremor: ${e.tremor_score ?? 'N/A'}, Voice: ${e.voice_score ?? 'N/A'}`
-        ).join('\n');
+        const tremorScores = entries.map(e => e.tremor_score).filter(v => v != null);
+        const voiceScores = entries.map(e => e.voice_score).filter(v => v != null);
+        const tremorMin = tremorScores.length ? Math.min(...tremorScores).toFixed(1) : 'N/A';
+        const tremorMax = tremorScores.length ? Math.max(...tremorScores).toFixed(1) : 'N/A';
+        const voiceMin = voiceScores.length ? Math.min(...voiceScores).toFixed(1) : 'N/A';
+        const voiceMax = voiceScores.length ? Math.max(...voiceScores).toFixed(1) : 'N/A';
         
-        return `Analyze this Parkinson's tracking data from a mobile symptom tracker app:
+        const tremorRange = tremorScores.length ? Math.max(...tremorScores) - Math.min(...tremorScores) : 0;
+        const voiceRange = voiceScores.length ? Math.max(...voiceScores) - Math.min(...voiceScores) : 0;
+        const maxRange = Math.max(tremorRange, voiceRange);
+        const variability = maxRange > 3 ? 'high' : maxRange > 1.5 ? 'moderate' : 'low';
+        
+        const dataLines = entries.map((e, i) => {
+            const d = new Date(e.date);
+            const shortDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const tremor = e.tremor_score != null ? `${e.tremor_score}/10` : 'N/A';
+            const voice = e.voice_score != null ? `${e.voice_score}/10` : 'N/A';
+            return `Day ${i + 1} (${shortDate}): Tremor ${tremor}, Voice ${voice}`;
+        }).join('\n');
+        
+        return `You are a medical AI assistant helping Parkinson's patients communicate symptom patterns to their neurologists.
 
-DATA FROM LAST 7 DAYS:
-${dataPoints}
+PATIENT SYMPTOM DATA (Last 7 Days):
+${dataLines || 'No data recorded.'}
 
-SUMMARY STATISTICS:
-- Average Tremor Score: ${stats.avgTremor ?? 'N/A'} (scale 0-10, higher = more tremor)
-- Average Voice Score: ${stats.avgVoice ?? 'N/A'} (scale 0-10, higher = more speech difficulty)
-- Overall Trend: ${stats.trend}
-- Total Entries: ${stats.entryCount}
+SUMMARY METRICS:
+- Tremor: Average ${stats.avgTremor ?? 'N/A'}, Range ${tremorMin}-${tremorMax}, Trend ${stats.trend}
+- Voice: Average ${stats.avgVoice ?? 'N/A'}, Range ${voiceMin}-${voiceMax}, Trend ${stats.trend}
+- Variability: ${variability}
 
-Please generate a 150-word medical summary suitable for sharing with a doctor. Cover:
-1. Overall trend assessment of the patient's symptoms
-2. Key patterns identified in tremor and voice measurements
-3. Any indicators that might suggest medication effectiveness
-4. 2-3 specific discussion points for the next doctor visit
+CONTEXT:
+- Scores measured via smartphone accelerometer (tremor) and voice analysis
+- Scale: 0-2 = minimal, 3-5 = moderate, 6-10 = severe symptoms
+- Patient is already diagnosed with Parkinson's; this is symptom tracking, not diagnosis
 
-Write in a professional but accessible tone. Do not make diagnoses or specific medical recommendations.`;
+TASK:
+Generate a 150-200 word medical summary for this patient's neurologist. Structure:
+
+1. SYMPTOM OVERVIEW (2-3 sentences)
+   - State average scores and overall trend
+   - Note day-to-day variability level
+
+2. PATTERN ANALYSIS (2-3 sentences)
+   - Identify correlation between tremor and voice scores
+   - Highlight any concerning patterns (e.g., worsening trend, high variability)
+   - Note best/worst days
+
+3. CLINICAL IMPLICATIONS (2-3 sentences)
+   - What might this suggest about medication timing/effectiveness?
+   - Are symptoms stable, improving, or declining?
+
+4. DISCUSSION POINTS (3 bullet points)
+   - Specific, actionable items for doctor-patient conversation
+   - Focus on medication optimization, symptom management
+
+TONE: Professional medical communication, objective and data-focused
+CONSTRAINTS: 
+- Do NOT diagnose conditions
+- Do NOT recommend specific medications or dosage changes
+- Do NOT make treatment decisions
+- DO focus on observable patterns and questions to raise with doctor`;
     },
     
     /**
