@@ -187,9 +187,14 @@ const TremorUI = {
         this.state.chart.data.labels = this.state.chartData.map((_, i) => i);
         this.state.chart.data.datasets[0].data = this.state.chartData;
         
-        // Auto-scale Y axis
-        const maxVal = Math.max(...this.state.chartData, 0.5);
-        this.state.chart.options.scales.y.max = Math.ceil(maxVal * 1.2);
+        // Auto-scale Y axis with tighter range to show fluctuations better
+        const minVal = Math.min(...this.state.chartData);
+        const maxVal = Math.max(...this.state.chartData);
+        const range = maxVal - minVal;
+        const padding = Math.max(range * 0.15, 0.1); // 15% padding or min 0.1
+        
+        this.state.chart.options.scales.y.min = Math.max(0, minVal - padding);
+        this.state.chart.options.scales.y.max = maxVal + padding;
         
         this.state.chart.update('none');
     },
