@@ -6,7 +6,7 @@
 const TremorLogic = {
     // Configuration
     config: {
-        testDuration: 10000, // 10 seconds
+        testDuration: 30000, // 30 seconds
         sampleRate: 30, // Target samples per second (iOS typically 20-30 Hz)
         tremorFreqMin: 4, // Hz
         tremorFreqMax: 6, // Hz
