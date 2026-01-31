@@ -23,23 +23,12 @@ const Utils = {
     },
     
     /**
-     * Update navigation button active states
+     * Update navigation button active states (deprecated - no longer using bottom nav)
      * @param {string} activeSectionId - The currently active section ID
      */
     updateNavState(activeSectionId) {
-        const navTremor = document.getElementById('nav-tremor');
-        const navVoice = document.getElementById('nav-voice');
-        
-        // Reset all nav buttons
-        navTremor.classList.remove('nav-active', 'text-primary');
-        navVoice.classList.remove('nav-active', 'voice', 'text-accent');
-        
-        // Set active state based on section
-        if (activeSectionId === 'tremor-test') {
-            navTremor.classList.add('nav-active', 'text-primary');
-        } else if (activeSectionId === 'voice-test') {
-            navVoice.classList.add('nav-active', 'voice', 'text-accent');
-        }
+        // Bottom navigation has been removed
+        // This function is kept for backwards compatibility
     },
     
     /**
