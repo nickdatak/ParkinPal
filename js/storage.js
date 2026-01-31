@@ -345,7 +345,7 @@ const Storage = {
      * Generate demo data for demonstration purposes (7-day realistic history).
      */
     generateDemoData() {
-        const tremorScores = [4.2, 3.1, 5.8, 4.5, 2.9, 6.3, 3.7];
+        const tremorScores = [4.2, 3.1, 9.8, 4.5, 2.9, 6.3, 3.7];
         const voiceScores = [3.8, 2.9, 5.2, 4.1, 3.2, 5.9, 3.5];
         const getSeverity = (score) => score < 3 ? 'Low' : score <= 7 ? 'Medium' : 'High';
         const demoEntries = [];
