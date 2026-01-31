@@ -6,8 +6,8 @@
 const TremorLogic = {
     // Configuration
     config: {
-        testDuration: 30000, // 30 seconds
-        sampleRate: 60, // Target samples per second
+        testDuration: 10000, // 10 seconds
+        sampleRate: 30, // Target samples per second (iOS typically 20-30 Hz)
         tremorFreqMin: 4, // Hz
         tremorFreqMax: 6, // Hz
         highPassCutoff: 1 // Hz - remove gravity/slow movements
@@ -90,14 +90,21 @@ const TremorLogic = {
             if (now - lastSampleTime < minInterval) return;
             lastSampleTime = now;
             
-            const { acceleration } = event;
-            if (!acceleration) return;
+            // Use accelerationIncludingGravity for better iOS compatibility
+            // Falls back to acceleration if not available
+            const accel = event.accelerationIncludingGravity || event.acceleration;
             
-            const x = acceleration.x || 0;
-            const y = acceleration.y || 0;
-            const z = acceleration.z || 0;
+            // Check if we have valid acceleration data
+            if (!accel || (accel.x === null && accel.y === null && accel.z === null)) {
+                console.warn('No acceleration data available');
+                return;
+            }
             
-            // Calculate magnitude (ignoring gravity via accelerationIncludingGravity)
+            const x = accel.x || 0;
+            const y = accel.y || 0;
+            const z = accel.z || 0;
+            
+            // Calculate magnitude
             const magnitude = Math.sqrt(x * x + y * y + z * z);
             
             // Store raw data
