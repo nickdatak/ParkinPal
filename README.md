@@ -2,6 +2,8 @@
 
 **ParkinPal** is a mobile-first web app for people with Parkinson’s to track tremor and voice symptoms, view trends, and generate AI summaries for doctor visits. All data stays on the device except when generating reports or daily insights.
 
+**Live app:** [https://parkin-pal.vercel.app](https://parkin-pal.vercel.app) — the best way to use ParkinPal is to open this link on your phone or tablet (HTTPS is required for the tremor test on iOS).
+
 ---
 
 ## Features
@@ -87,30 +89,11 @@
 
 ## How to run the project
 
-### Prerequisites
-- **Node.js 20.x** (optional; for `npm start` / `npx serve`)
-- **HTTPS** for tremor test on iOS (DeviceMotion requires it)
+**Best way:** Use the live app at [https://parkin-pal.vercel.app](https://parkin-pal.vercel.app) (HTTPS is required for the tremor test on iOS).
 
-### Option 1: Node (recommended)
-```bash
-# From the project root (ParkinPal/)
-npm start
-```
-Runs `npx serve .` – by default at **http://localhost:3000**.
-
-### Option 2: Python
-```bash
-# From the project root
-python -m http.server 8000
-```
-App at **http://localhost:8000**.
-
-### Option 3: Any static server
-Open the project root with any HTTP server (e.g. Live Server in VS Code, or `npx serve .`). Ensure the server root is the folder that contains `index.html`, `css/`, `js/`, and `api/`.
-
-### iOS / real device
-- **Tremor test** needs **HTTPS** and a **user gesture** to request motion permission.
-- For local HTTPS you can use something like **ngrok** or **mkcert**; otherwise use a **Vercel** deployment.
+**Local development** (optional; e.g. to work on the code):
+- **Node.js 20.x** and `npm start` from the project root (runs `npx serve .` at http://localhost:3000).
+- **Tremor test** on a real device needs HTTPS; for local testing you can use ngrok/mkcert or the deployed link.
 
 ---
 
@@ -184,7 +167,7 @@ ParkinPal/
 ## Browser support
 
 - **iOS Safari 13+** (primary; required for DeviceMotion on iPhone/iPad)
-- Chrome, Firefox, Edge (desktop and Android)
+- Chrome, Firefox, Edge (Android)
 - Microphone and (on iOS) motion permissions must be granted by the user.
 
 ---
