@@ -339,6 +339,48 @@ const Storage = {
     clearAll() {
         localStorage.removeItem(this.STORAGE_KEY);
         this.init();
+    },
+    
+    /**
+     * Generate demo data for demonstration purposes (7-day realistic history).
+     */
+    generateDemoData() {
+        const tremorScores = [4.2, 3.1, 5.8, 4.5, 2.9, 6.3, 3.7];
+        const voiceScores = [3.8, 2.9, 5.2, 4.1, 3.2, 5.9, 3.5];
+        const getSeverity = (score) => score < 3 ? 'Low' : score <= 7 ? 'Medium' : 'High';
+        const demoEntries = [];
+        
+        for (let i = 0; i < 7; i++) {
+            const date = new Date();
+            date.setDate(date.getDate() - (6 - i));
+            date.setHours(10 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 60), 0, 0);
+            const tremorScore = tremorScores[i];
+            const voiceScore = voiceScores[i];
+            demoEntries.push({
+                id: Utils.generateId(),
+                date: date.toISOString(),
+                tremor_score: tremorScore,
+                tremor_severity: getSeverity(tremorScore),
+                tremor_raw_data: [],
+                voice_score: voiceScore,
+                voice_duration: 4.0 + Math.random() * 2,
+                voice_pauses: Math.floor(Math.random() * 3),
+                voice_variance: 0.03 + Math.random() * 0.05,
+                notes: ''
+            });
+        }
+        
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(demoEntries));
+            console.log('Demo data generated:', demoEntries);
+            Utils.showToast('Demo data generated! Reloading...', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+            return true;
+        } catch (error) {
+            console.error('Error generating demo data:', error);
+            Utils.showToast('Failed to generate demo data', 'error');
+            return false;
+        }
     }
 };
 
