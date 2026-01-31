@@ -74,7 +74,7 @@
         
         <!-- Header -->
         <header class="text-gray-700 p-4 flex items-center sticky top-0 z-30 bg-transparent">
-            <button id="analyse-btn" class="bg-white/80 hover:bg-white px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm hover:shadow min-h-[44px] text-lavender-600 hidden">
+            <button id="analyse-btn" class="bg-white/80 hover:bg-white px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm hover:shadow min-h-[44px] text-gray-800 hidden">
                 Analyse Data
             </button>
         </header>
@@ -173,7 +173,7 @@
             <!-- Tremor Test Section -->
             <section id="tremor-test" class="section p-6 hidden">
                 <!-- Back Button -->
-                <button id="tremor-back" class="flex items-center text-lavender-600 hover:text-lavender-700 mb-4 font-medium transition-colors">
+                <button id="tremor-back" class="flex items-center text-gray-800 hover:text-gray-700 mb-4 font-medium transition-colors">
                     <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
@@ -181,8 +181,8 @@
                 </button>
                 
                 <div class="text-center mb-6">
-                    <div class="w-16 h-16 bg-gradient-to-r from-lavender-500 to-lavender-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <img src="assets/tremor-icon.png" alt="" class="w-10 h-10 object-contain" aria-hidden="true">
+                    <div class="w-16 h-16 bg-gradient-to-r from-lavender-200 to-lavender-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <img src="assets/tremor-icon.png" alt="" class="w-8 h-8 object-contain" aria-hidden="true">
                     </div>
                     <h2 class="text-xl font-bold text-gray-800">Tremor Test</h2>
                     <p class="text-gray-600 text-sm mt-1">Hold your phone steady to measure tremor</p>
@@ -190,7 +190,7 @@
                 
                 <!-- Instructions -->
                 <div id="tremor-instructions" class="bg-lavender-50 rounded-xl p-4 mb-6 border border-lavender-100">
-                    <h4 class="font-semibold text-lavender-600 mb-2">Instructions:</h4>
+                    <h4 class="font-semibold text-gray-800 mb-2">Instructions:</h4>
                     <ol class="text-sm text-gray-700 space-y-1 list-decimal list-inside">
                         <li>Hold your phone in your hand, arm extended</li>
                         <li>Keep your arm as still as possible</li>
@@ -201,7 +201,7 @@
                 
                 <!-- Timer Display -->
                 <div id="tremor-timer" class="text-center mb-6 hidden">
-                    <div class="text-5xl font-bold text-lavender-600" id="tremor-countdown">30</div>
+                    <div class="text-5xl font-bold text-gray-800" id="tremor-countdown">30</div>
                     <p class="text-gray-500 text-sm">seconds remaining</p>
                 </div>
                 
@@ -226,7 +226,7 @@
                         <h3 class="font-semibold text-gray-800 mb-4">Test Results</h3>
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="text-center p-4 bg-gray-50 rounded-lg">
-                                <div id="tremor-score" class="text-3xl font-bold text-lavender-600">0</div>
+                                <div id="tremor-score" class="text-3xl font-bold text-gray-800">0</div>
                                 <div class="text-sm text-gray-500">Score (0-10)</div>
                             </div>
                             <div class="text-center p-4 bg-gray-50 rounded-lg">
@@ -250,7 +250,7 @@
             <!-- Voice Test Section -->
             <section id="voice-test" class="section p-6 hidden">
                 <!-- Back Button -->
-                <button id="voice-back" class="flex items-center text-lavender-600 hover:text-lavender-600 mb-4 font-medium transition-colors">
+                <button id="voice-back" class="flex items-center text-gray-800 hover:text-gray-700 mb-4 font-medium transition-colors">
                     <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
@@ -258,7 +258,7 @@
                 </button>
                 
                 <div class="text-center mb-6">
-                    <div class="w-16 h-16 bg-gradient-to-r from-lavender-400 to-lavender-500 rounded-full flex items-center justify-center mx-auto mb-4 p-2">
+                    <div class="w-16 h-16 bg-gradient-to-r from-lavender-200 to-lavender-300 rounded-full flex items-center justify-center mx-auto mb-4 p-2">
                         <img src="assets/voice-icon.png" alt="" class="w-full h-full object-contain" aria-hidden="true">
                     </div>
                     <h2 class="text-xl font-bold text-gray-800">Voice Test</h2>
@@ -267,7 +267,7 @@
                 
                 <!-- Phrase to Read -->
                 <div class="bg-lavender-50 rounded-xl p-6 mb-6 border border-lavender-100">
-                    <h4 class="font-semibold text-lavender-600 mb-3">Read this phrase:</h4>
+                    <h4 class="font-semibold text-gray-800 mb-3">Read this phrase:</h4>
                     <p class="text-lg text-gray-800 font-medium italic">
                         "The quick brown fox jumps over the lazy dog"
                     </p>
@@ -275,7 +275,7 @@
                 
                 <!-- Timer Display -->
                 <div id="voice-timer" class="text-center mb-6 hidden">
-                    <div class="text-5xl font-bold text-lavender-600" id="voice-countdown">10</div>
+                    <div class="text-5xl font-bold text-gray-800" id="voice-countdown">10</div>
                     <p class="text-gray-500 text-sm">seconds remaining</p>
                 </div>
                 
@@ -300,7 +300,7 @@
                         <h3 class="font-semibold text-gray-800 mb-4">Test Results</h3>
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="text-center p-4 bg-gray-50 rounded-lg">
-                                <div id="voice-score" class="text-3xl font-bold text-lavender-600">0</div>
+                                <div id="voice-score" class="text-3xl font-bold text-gray-800">0</div>
                                 <div class="text-sm text-gray-500">Score (0-10)</div>
                             </div>
                             <div class="text-center p-4 bg-gray-50 rounded-lg">
@@ -340,7 +340,7 @@
             <!-- Trends/Analysis Section -->
             <section id="trends" class="section p-6 hidden">
                 <!-- Back Button -->
-                <button id="trends-back" class="flex items-center text-lavender-600 hover:text-lavender-700 mb-4 font-medium transition-colors">
+                <button id="trends-back" class="flex items-center text-gray-800 hover:text-gray-700 mb-4 font-medium transition-colors">
                     <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
@@ -356,11 +356,11 @@
                 <div id="trend-summary" class="bg-white rounded-xl shadow-sm p-4 mb-6">
                     <div class="grid grid-cols-3 gap-4 text-center">
                         <div>
-                            <div id="avg-tremor" class="text-2xl font-bold text-lavender-600">-</div>
+                            <div id="avg-tremor" class="text-2xl font-bold text-gray-800">-</div>
                             <div class="text-xs text-gray-500">Avg Tremor</div>
                         </div>
                         <div>
-                            <div id="avg-voice" class="text-2xl font-bold text-lavender-600">-</div>
+                            <div id="avg-voice" class="text-2xl font-bold text-gray-800">-</div>
                             <div class="text-xs text-gray-500">Avg Voice</div>
                         </div>
                         <div>
@@ -403,7 +403,7 @@
             <!-- Report Section -->
             <section id="report" class="section p-6 hidden">
                 <!-- Back Button -->
-                <button id="report-back" class="flex items-center text-lavender-600 hover:text-lavender-700 mb-4 font-medium transition-colors">
+                <button id="report-back" class="flex items-center text-gray-800 hover:text-gray-700 mb-4 font-medium transition-colors">
                     <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
