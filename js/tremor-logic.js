@@ -168,6 +168,19 @@ const TremorLogic = {
         
         // Detect tremor using zero-crossing and amplitude analysis
         const tremorAnalysis = this.detectTremor(filtered);
+
+        console.log('=== TREMOR ANALYSIS DEBUG ===');
+        console.log('Raw magnitudes (first 10):', this.state.magnitudes.slice(0, 10));
+        console.log('Filtered data (first 10):', filtered.slice(0, 10));
+        console.log('Analysis results:', {
+        amplitude: tremorAnalysis.amplitude,
+        peakAmplitude: tremorAnalysis.peakAmplitude,
+        frequency: tremorAnalysis.frequency,
+        regularity: tremorAnalysis.regularity,
+        inTremorRange: tremorAnalysis.inTremorRange,
+        zeroCrossings: tremorAnalysis.zeroCrossings
+        });
+        console.log('=== END TREMOR ANALYSIS DEBUG ===');
         
         // Calculate score (0-10)
         const score = this.calculateScore(tremorAnalysis);
@@ -280,6 +293,10 @@ const TremorLogic = {
      * @returns {number} Score 0-10
      */
     calculateScore(analysis) {
+
+        console.log('=== SCORE CALCULATION ===');
+        console.log('Input to calculateScore:', analysis);
+        
         const { frequency, amplitude, peakAmplitude, regularity, inTremorRange } = analysis;
         
         // Base score from amplitude
@@ -292,6 +309,8 @@ const TremorLogic = {
         
         // After high-pass filter, typical tremor amplitudes: 0.1-2.0
         // Vigorous shaking: 5.0-20.0
+
+        
         let amplitudeScore = 0;
         
         if (amplitude < 0.5) {
@@ -321,10 +340,12 @@ const TremorLogic = {
         
         // Clamp to 0-10
         score = Math.max(0, Math.min(10, score));
+
+        console.log('Final score:', score);
         
         // Round to 1 decimal place
         return Math.round(score * 10) / 10;
-    },,
+    },
     
     /**
      * Get current recording state
