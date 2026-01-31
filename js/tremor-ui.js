@@ -85,8 +85,6 @@ const TremorUI = {
                     },
                     y: {
                         display: true,
-                        min: 0,
-                        max: 2,
                         title: {
                             display: true,
                             text: 'm/s²',
