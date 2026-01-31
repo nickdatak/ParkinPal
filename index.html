@@ -258,32 +258,9 @@
                 <!-- Phrase to Read -->
                 <div class="bg-lavender-50 rounded-xl p-6 mb-6 border border-lavender-100">
                     <h4 class="text-gray-800 mb-3">Read this phrase:</h4>
-                    <p class="text-lg text-gray-800 font-medium italic">
-                <div class="bg-violet-50 rounded-xl p-6 mb-6 border border-violet-100">
                     <p id="voice-target-phrase" class="text-lg text-gray-800 font-medium italic">
                         "The quick brown fox jumps over the lazy dog"
                     </p>
-                </div>
-                
-                <!-- Live Transcript (shown during recording) -->
-                <div id="voice-transcript-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden border border-gray-100">
-                    <div class="flex items-center justify-between mb-2">
-                        <h4 class="font-medium text-gray-700 text-sm">What we heard:</h4>
-                        <span id="voice-transcript-word-count" class="text-xs text-gray-800 font-medium">0 words</span>
-                    </div>
-                    <p id="voice-transcript-text" class="text-gray-600 text-sm min-h-[40px]">Listening...</p>
-                    <p id="voice-speech-not-supported" class="text-amber-600 text-xs hidden">
-                        Speech recognition not supported in this browser. Speaking rate won't be calculated.
-                    </p>
-                </div>
-                
-                <!-- Soundwave Visualization (persists after recording) -->
-                <div id="voice-soundwave-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden border border-gray-100">
-                    <div class="flex items-center justify-between mb-2">
-                        <h4 class="font-medium text-gray-700 text-sm">Voice Recording</h4>
-                        <span id="voice-soundwave-duration" class="text-xs text-gray-800 font-medium">0.0s</span>
-                    </div>
-                    <canvas id="voice-soundwave" class="w-full h-20 rounded-lg" height="80" style="background: linear-gradient(180deg, #E8F6FC 0%, #D4EFFA 100%);"></canvas>
                 </div>
                 
                 <!-- Live Transcript (shown during recording) -->
@@ -313,7 +290,7 @@
                     <p class="text-gray-500 text-sm">seconds remaining</p>
                 </div>
                 
-                <!-- Waveform Visualization -->
+                <!-- Waveform (hidden when results show - only used during live recording) -->
                 <div id="voice-waveform-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden">
                     <canvas id="voice-waveform" height="100"></canvas>
                 </div>

@@ -534,9 +534,12 @@ const VoiceUI = {
         this.elements.stopBtn.classList.add('hidden');
         this.elements.results.classList.remove('hidden');
         
-        // Hide transcript container during results
+        // Hide transcript and waveform containers during results (waveform becomes empty after recording stops)
         if (this.elements.transcriptContainer) {
             this.elements.transcriptContainer.classList.add('hidden');
+        }
+        if (this.elements.waveformContainer) {
+            this.elements.waveformContainer.classList.add('hidden');
         }
         
         // Update soundwave duration and draw full recording waveform
