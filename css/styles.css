@@ -14,6 +14,11 @@ body {
     overscroll-behavior: none;
 }
 
+/* Headings use Montserrat Alternates */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Montserrat Alternates', sans-serif;
+}
+
 /* Prevent text selection on interactive elements */
 button {
     user-select: none;
