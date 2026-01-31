@@ -1,0 +1,12 @@
+{
+  "name": "parkinpal",
+  "version": "1.0.0",
+  "description": "Parkinson's Symptom Tracker - Mobile web app for tracking tremor and voice symptoms",
+  "private": true,
+  "engines": {
+    "node": "18.x"
+  },
+  "scripts": {
+    "start": "npx serve ."
+  }
+}
