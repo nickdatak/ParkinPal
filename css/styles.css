@@ -256,6 +256,42 @@ button:disabled {
     transform: scale(1.1);
 }
 
+/* Typewriter Effect */
+.typewriter-container {
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.typewriter-text {
+    display: inline-block;
+    border-right: 3px solid #8B5CF6;
+    padding-right: 5px;
+    animation: typewriter 2s steps(20) 0.5s forwards, blink 0.75s step-end infinite;
+    width: 0;
+    overflow: hidden;
+}
+
+@keyframes typewriter {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+@keyframes blink {
+    50% {
+        border-color: transparent;
+    }
+}
+
+.typewriter-text.complete {
+    border-right: none;
+    animation: none;
+    width: auto;
+}
+
 /* Smiley Face Container */
 .smiley-container {
     position: relative;

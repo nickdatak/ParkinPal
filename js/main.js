@@ -76,6 +76,15 @@ const App = {
         
         if (userNameSpan) {
             userNameSpan.textContent = name;
+            
+            // Trigger typewriter effect
+            const typewriterText = greetingHeading?.querySelector('.typewriter-text');
+            if (typewriterText) {
+                // Remove cursor after animation completes
+                setTimeout(() => {
+                    typewriterText.classList.add('complete');
+                }, 2500); // 0.5s delay + 2s animation
+            }
         }
         
         // Update greeting text based on first visit status
