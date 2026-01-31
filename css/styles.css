@@ -25,7 +25,7 @@ button {
     width: 40px;
     height: 40px;
     border: 4px solid #E5E7EB;
-    border-top-color: #8B5CF6;
+    border-top-color: #537D8D;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -58,7 +58,7 @@ button {
 }
 
 .toast-info {
-    background-color: #8B5CF6;
+    background-color: #537D8D;
     color: white;
 }
 
@@ -217,7 +217,7 @@ button {
 /* Focus States for Accessibility */
 button:focus-visible,
 input:focus-visible {
-    outline: 2px solid #A78BFA;
+    outline: 2px solid #6B98AD;
     outline-offset: 2px;
 }
 
@@ -264,7 +264,7 @@ button:disabled {
 
 .typewriter-text {
     display: inline-block;
-    border-right: 3px solid #8B5CF6;
+    border-right: 3px solid #537D8D;
     padding-right: 5px;
     animation: typewriter 2s steps(20) 0.5s forwards, blink 0.75s step-end infinite;
     width: 0;
