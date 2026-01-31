@@ -300,19 +300,17 @@ const TremorLogic = {
     calculateScore(analysis) {
         const { movementIntensity, stdDev, range, frequency, inTremorRange, regularity } = analysis;
         
-        // Scale: raw magnitude stdDev when still ≈ 0; light shake ~0.2-0.5; hard shake 1-4+
-        // Map movementIntensity (typically 0 to ~5) to 0-10 score
-        let score = 0;
-        if (movementIntensity < 0.1) {
-            score = movementIntensity * 10;           // 0–1: nearly still
-        } else if (movementIntensity < 0.5) {
-            score = 1 + (movementIntensity - 0.1) * 8;  // 1–4.2: light movement
-        } else if (movementIntensity < 1.5) {
-            score = 4.2 + (movementIntensity - 0.5) * 3; // 4.2–7.2: moderate
-        } else if (movementIntensity < 3.0) {
-            score = 7.2 + (movementIntensity - 1.5) * 1.2; // 7.2–9.0: heavy
+        // Rescaled from runtime evidence: still phone ~0.08-0.09 intensity, crazy shake ~0.45.
+        // Dead zone so still → 0; linear map so crazy shake → 8-10.
+        const DEAD_ZONE = 0.10;   // below this = still, score 0 (covers ~0.08-0.09)
+        const INTENSITY_MAX = 0.5; // at/above this = score 10 (observed "crazy shake" ~0.45)
+        let score;
+        if (movementIntensity < DEAD_ZONE) {
+            score = 0;
+        } else if (movementIntensity >= INTENSITY_MAX) {
+            score = 10;
         } else {
-            score = 9.0 + Math.min((movementIntensity - 3.0) / 2, 1); // 9–10: very heavy
+            score = 10 * (movementIntensity - DEAD_ZONE) / (INTENSITY_MAX - DEAD_ZONE);
         }
         
         // Small boost if pattern looks like classic tremor (4-6 Hz, regular)
