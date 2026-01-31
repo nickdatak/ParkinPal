@@ -73,6 +73,12 @@ const App = {
         const userNameSpan = document.getElementById('user-name');
         const greetingHeading = document.getElementById('greeting-heading');
         const greetingSubtext = document.getElementById('greeting-subtext');
+        const analyseBtn = document.getElementById('analyse-btn');
+        
+        // Show the Analyse Data button
+        if (analyseBtn) {
+            analyseBtn.classList.remove('hidden');
+        }
         
         if (userNameSpan) {
             userNameSpan.textContent = name;
