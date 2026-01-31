@@ -319,33 +319,25 @@ FORMATTING: Use **double asterisks** for key terms (e.g. **Average tremor**, **O
     },
     
     /**
-     * Get daily insight for a test result
+     * Get daily insight for a test result (2-sentence summary)
+     * Uses Manus first, then Gemini, then scripted fallback
      * @param {number|null} tremorScore - Tremor score (0-10)
      * @param {number|null} voiceScore - Voice score (0-10)
      * @returns {Promise<string>} Insight text
      */
     async getDailyInsight(tremorScore, voiceScore) {
-        const prompt = `Based on today's Parkinson's symptom tracking results (tremor score: ${tremorScore ?? 'not measured'}/10, voice score: ${voiceScore ?? 'not measured'}/10), provide brief encouraging feedback and one practical tip. Keep response under 40 words. Be warm and supportive.`;
+        const prompt = `Based on today's Parkinson's symptom tracking: tremor score ${tremorScore ?? 'not measured'}/10, voice score ${voiceScore ?? 'not measured'}/10 (0-2 minimal, 3-5 moderate, 6-10 severe). Write exactly 2 sentences: (1) a brief summary of how the scores look today, (2) one practical tip or encouragement. Be warm and supportive. Output ONLY the 2 sentences, nothing else.`;
         
         try {
-            // Use Gemini for quick sync response
-            const response = await fetch(this.config.geminiEndpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.text) {
-                    return data.text;
-                }
+            const insight = await this.callManusAI(prompt);
+            if (insight) {
+                return insight;
             }
         } catch (error) {
             console.error('Daily insight error:', error);
         }
         
-        // Fallback insight
+        // Fallback insight when AI unavailable
         return this.getInsightFallback(tremorScore, voiceScore);
     },
     
