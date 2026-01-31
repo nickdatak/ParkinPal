@@ -8,10 +8,10 @@
     <meta name="theme-color" content="#8B5CF6">
     <title>ParkinPal - Parkinson's Symptom Tracker</title>
     
-    <!-- Google Fonts - Nunito -->
+    <!-- Google Fonts - Bricolage Grotesque -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -20,7 +20,7 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        'sans': ['Nunito', 'system-ui', 'sans-serif'],
+                        'sans': ['Bricolage Grotesque', 'system-ui', 'sans-serif'],
                     },
                     colors: {
                         primary: {
@@ -30,7 +30,7 @@
                         },
                         accent: {
                             light: '#10B981',
-                            DEFAULT: '#000000',
+                            DEFAULT: '#059669',
                             dark: '#047857'
                         },
                         lavender: {
@@ -54,7 +54,7 @@
     <!-- Custom Styles -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="min-h-screen bg-white">
+<body class="min-h-screen bg-white font-sans">
     <!-- Background Gradient -->
     <div class="fixed inset-0 z-0 pointer-events-none" style="background: linear-gradient(180deg, rgba(199, 183, 255, 0.4) 0%, rgba(167, 139, 250, 0.25) 20%, rgba(221, 214, 254, 0.15) 40%, rgba(255,255,255,0) 70%);"></div>
     
@@ -78,7 +78,6 @@
                 Analyse Data
             </button>
             <h1 class="text-xl font-bold text-lavender-600">ParkinPal</h1>
-            <div class="w-24"></div> <!-- Spacer for centering -->
         </header>
 
         <!-- Main Content Area -->
@@ -88,15 +87,15 @@
             <section id="welcome" class="section p-6 flex flex-col items-center justify-center min-h-[70vh]">
                 <div class="text-center mb-8">
                     <!-- Smiley Face with Gradient Shadow -->
-                    <div class="relative mx-auto mb-6 w-28 h-28">
+                    <div class="relative mx-auto mb-6 w-28 h-28 smiley-face">
                         <!-- Gradient shadow/glow behind face -->
                         <div class="absolute inset-0 rounded-full bg-gradient-to-br from-lavender-300/50 to-lavender-400/30 blur-xl scale-110"></div>
                         <!-- Face container -->
                         <div class="relative w-28 h-28 rounded-full bg-white flex items-center justify-center shadow-lg">
                             <svg class="w-20 h-20" viewBox="0 0 100 100" fill="none">
-                                <!-- Happy squinting eyes -->
-                                <path d="M28 42 Q35 35 42 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
-                                <path d="M58 42 Q65 35 72 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                                <!-- Happy squinting eyes (can blink) -->
+                                <path class="smiley-eye-left" d="M28 42 Q35 35 42 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                                <path class="smiley-eye-right" d="M58 42 Q65 35 72 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
                                 <!-- Curved smile -->
                                 <path d="M30 58 Q50 78 70 58" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
                             </svg>
@@ -129,15 +128,15 @@
                 <div class="flex-1 flex flex-col items-center justify-center">
                     <div class="text-center mb-10">
                         <!-- Smiley Face with Gradient Shadow -->
-                        <div class="relative mx-auto mb-6 w-28 h-28">
+                        <div class="relative mx-auto mb-6 w-28 h-28 smiley-face">
                             <!-- Gradient shadow/glow behind face -->
                             <div class="absolute inset-0 rounded-full bg-gradient-to-br from-lavender-300/50 to-lavender-400/30 blur-xl scale-110"></div>
                             <!-- Face container -->
                             <div class="relative w-28 h-28 rounded-full bg-white flex items-center justify-center shadow-lg">
                                 <svg class="w-20 h-20" viewBox="0 0 100 100" fill="none">
-                                    <!-- Happy squinting eyes -->
-                                    <path d="M28 42 Q35 35 42 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
-                                    <path d="M58 42 Q65 35 72 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                                    <!-- Happy squinting eyes (can blink) -->
+                                    <path class="smiley-eye-left" d="M28 42 Q35 35 42 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
+                                    <path class="smiley-eye-right" d="M58 42 Q65 35 72 42" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
                                     <!-- Curved smile -->
                                     <path d="M30 58 Q50 78 70 58" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" fill="none"/>
                                 </svg>
@@ -146,14 +145,11 @@
                         
                         <!-- Greeting Text -->
                         <h2 id="greeting-heading" class="text-2xl font-semibold text-gray-800">Hey <span id="user-name" class="text-lavender-600"></span></h2>
-                        <p id="greeting-subtext" class="text-xl text-gray-600 mt-1">great meeting you</p>
                     </div>
                 </div>
                 
                 <!-- Bottom buttons - pinned to bottom -->
                 <div class="w-full max-w-sm mx-auto pb-4">
-                    <p class="text-gray-500 mb-4 text-center">Select a test</p>
-                    
                     <div class="space-y-3">
                         <button 
                             id="greeting-tremor-btn" 
@@ -453,6 +449,38 @@
         </main>
 
     </div>
+
+    <!-- Smiley Face Blinking Animation -->
+    <script>
+    (function() {
+        const blinkInterval = 2500; // Blink every 3 seconds
+        const blinkDuration = 120; // Blink lasts 150ms
+        
+        function blink() {
+            const eyes = document.querySelectorAll('.smiley-eye-left, .smiley-eye-right');
+            eyes.forEach(eye => {
+                // Change to closed eye (horizontal line)
+                const originalD = eye.getAttribute('d');
+                const isLeft = eye.classList.contains('smiley-eye-left');
+                eye.setAttribute('d', isLeft ? 'M28 40 L42 40' : 'M58 40 L72 40');
+                
+                // Restore after blink duration
+                setTimeout(() => {
+                    eye.setAttribute('d', originalD);
+                }, blinkDuration);
+            });
+        }
+        
+        // Start blinking after page loads
+        setInterval(() => {
+            blink();
+            // Sometimes do a double blink
+            if (Math.random() < 0.3) {
+                setTimeout(blink, 300);
+            }
+        }, blinkInterval + Math.random() * 2000);
+    })();
+    </script>
 
     <!-- Scripts -->
     <script src="js/utils.js"></script>
