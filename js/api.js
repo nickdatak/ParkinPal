@@ -129,6 +129,8 @@ STATISTICS:
 - Trend: ${trend}
 - Tremor-Voice Correlation: ${correlation}
 
+START YOUR RESPONSE IMMEDIATELY WITH THE SUMMARY. DO NOT OUTPUT ANYTHING BEFORE THE SUMMARY.
+
 Write a 150-word clinical summary as a single paragraph. Include: (1) overall averages and trajectory, (2) specific outlier days with dates, (3) variability patterns, (4) tremor-voice correlation, on daily patterns. If there are some outliers mention them. Reference patient notes when relevant. DO ONLY THE SUMMARY. DON'T ASK QUESTIONS. WHEN YOU FINISH THE SUMMARY STOP TALKING
 
 FORMATTING: Use **double asterisks** for key terms and section labels (e.g. **Overall trend**, **Outlier days**). Use *single asterisks* for clinical terms and dates (e.g. *moderate variability*, *Jan 25*). Use plain text elsewhere. Make objective observations only.`;
