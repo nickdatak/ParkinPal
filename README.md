@@ -1,149 +1,203 @@
-# ParkinPal - Parkinson's Symptom Tracker
+# ParkinPal
 
-A mobile-first web app for tracking Parkinson's symptoms through tremor detection (accelerometer) and voice analysis, with AI-powered medical summaries for doctor visits.
+**ParkinPal** is a mobile-first web app for people with Parkinson’s to track tremor and voice symptoms, view trends, and generate AI summaries for doctor visits. All data stays on the device except when generating reports or daily insights.
+
+---
 
 ## Features
 
 ### Tremor Test
-- Uses iOS DeviceMotion API to detect hand tremor
-- 30-second test with real-time visualization
-- Detects 4-6 Hz tremor oscillations (characteristic of Parkinson's)
-- Calculates tremor score (0-10) and severity (Low/Medium/High)
+- Uses the **DeviceMotion API** (accelerometer) to measure hand tremor
+- **30-second** test with live magnitude chart
+- Detects tremor in the 4–6 Hz range (typical of Parkinson’s)
+- Produces a **tremor score (0–10)** and severity (Low / Medium / High)
+- Requires **HTTPS** and a **user gesture** on iOS Safari for permission
 
 ### Voice Test
-- Uses Web Audio API for voice analysis
-- Records 10 seconds of speech while reading a standard phrase
-- Analyzes: speaking duration, pause count, volume variance, speaking rate
-- Calculates voice score (0-10)
-- Includes audio playback feature
+- Uses the **Web Audio API** and an **AudioWorklet** (or ScriptProcessor fallback) for recording
+- **Web Speech API** for live transcript and word count
+- **7-second** recording after a short countdown; user reads: *“The quick brown fox jumps over the lazy dog”*
+- Analyzes: speaking time, pauses (silence ≥ 0.3 s), volume variance
+- Produces a **voice score (0–10)**
+- If fewer than 50% of expected words are detected, the app can prompt to retake the test
+- Playback of the recording and optional save
 
-### Data Tracking
-- LocalStorage-based persistence
-- 7-day history with trend visualization
-- Chart.js multi-line chart showing tremor and voice scores
-- Weekly averages and trend direction (improving/stable/worsening)
+### Data & Trends
+- **LocalStorage** for all entries (tremor/voice scores, severity, metadata)
+- **7-day** history with a Chart.js line chart (tremor and voice over time)
+- Weekly averages, trend (improving / stable / worsening), and recent history list
+- **Analyse Data** screen: chart, averages, and “Generate Doctor Report”
 
-### AI Medical Reports
-- "Generate Doctor Report" feature
-- Uses Manus AI
-- 150-word medical summary covering:
-  - Overall trend assessment
-  - Key patterns identified
-  - Medication effectiveness indicators
-  - Discussion points for doctor visits
-- Copy to clipboard and download as text file
+### AI – Doctor Report
+- **Manus AI** (via Vercel serverless proxy) generates a short clinical summary
+- Uses last 7 days of data: daily scores, averages, ranges, std dev, trend, tremor–voice correlation
+- Structured summary: overview, outlier days, tremor–voice relationship
+- Copy to clipboard and download as `.txt`
+- If Manus is unavailable, a template fallback is shown
 
-### Daily Insights
-- AI-generated encouragement after each test
-- Practical tips based on test results
+### AI – Daily Insights
+- After saving **tremor** or **voice** results, a **2-sentence** Manus insight is shown
+- **Tremor**: insight and tip based only on tremor score
+- **Voice**: insight and tip based only on voice score
+- Scripted fallback if the API is unavailable
+
+### UI/UX
+- Welcome screen: name input, then main “Hey, [name]” greeting with typewriter effect
+- **Montserrat** for body text, **Montserrat Alternates** for headings
+- Accent palette: teal/blue grays (`#ADBABD`, `#91B7C7`, `#6EB4D1`, `#6CBEED`)
+- Mobile-first layout; “Analyse Data” only after name is set
+- Headers and back buttons; no sticky header
+
+---
 
 ## Tech Stack
 
-- **Frontend**: Vanilla HTML/CSS/JS
-- **Styling**: Tailwind CSS (CDN)
-- **Charts**: Chart.js (CDN)
-- **APIs**: DeviceMotion API, Web Audio API
-- **AI**: Manus AI
-- **Storage**: LocalStorage
-- **Deployment**: Vercel (with serverless functions)
+| Layer | Technology |
+|--------|------------|
+| **Markup / app shell** | Single-page HTML5, semantic sections |
+| **Styling** | Tailwind CSS (CDN), custom `css/styles.css` |
+| **Fonts** | Google Fonts: Montserrat, Montserrat Alternates |
+| **Charts** | Chart.js (CDN) – trends chart, tremor live chart |
+| **Logic** | Vanilla JavaScript (ES6+), no framework |
+| **Browser APIs** | DeviceMotion (tremor), Web Audio (voice), MediaDevices (mic), SpeechRecognition (optional) |
+| **Audio processing** | AudioWorklet (`audio-processor.worklet.js`) with ScriptProcessor fallback |
+| **Storage** | LocalStorage only; quota handling in `storage.js` |
+| **AI** | Manus AI only (doctor report + daily insights) |
+| **Backend** | Vercel serverless: `api/manus.js` proxies Manus (POST create task, GET poll) |
+| **Hosting** | Vercel (static + serverless functions) |
+| **Node** | 20.x (`.nvmrc`, `package.json` engines) for local tooling / Vercel |
 
-## Setup
+### Main files
 
-### Local Development
+- **`index.html`** – Structure, Tailwind config, script order
+- **`css/styles.css`** – Overrides, spinner, toasts, report styling, typewriter
+- **`js/main.js`** – Init, routing, section visibility, report actions
+- **`js/utils.js`** – showSection, toasts, loading, formatDate, std dev, clamp, etc.
+- **`js/storage.js`** – CRUD, 7-day data, chart data, stats, demo data generator
+- **`js/tremor-logic.js`** – DeviceMotion, high-pass filter, tremor detection, scoring
+- **`js/tremor-ui.js`** – Tremor test UI, chart, countdown, save, insight
+- **`js/voice-logic.js`** – Web Audio, SpeechRecognition, segment/pause detection, scoring
+- **`js/voice-ui.js`** – Voice test UI, soundwave, transcript, save, insight
+- **`js/audio-processor.worklet.js`** – RMS amplitude in AudioWorklet
+- **`js/charts.js`** – Trends chart, history list, report data for API
+- **`js/api.js`** – Manus: doctor report (build prompt, call, poll), daily insight (tremor/voice)
+- **`api/manus.js`** – Vercel function: POST → create task, GET → poll by `taskId`
 
-1. Clone the repository
-2. Serve the files with any local HTTP server (for HTTPS, use a tool like `mkcert` for local certificates)
+---
 
+## How to run the project
+
+### Prerequisites
+- **Node.js 20.x** (optional; for `npm start` / `npx serve`)
+- **HTTPS** for tremor test on iOS (DeviceMotion requires it)
+
+### Option 1: Node (recommended)
 ```bash
-# Using Python
+# From the project root (ParkinPal/)
+npm start
+```
+Runs `npx serve .` – by default at **http://localhost:3000**.
+
+### Option 2: Python
+```bash
+# From the project root
 python -m http.server 8000
-
-# Using Node.js (npx)
-npx serve .
 ```
+App at **http://localhost:8000**.
 
-Note: DeviceMotion API requires HTTPS on iOS Safari. For local testing on mobile, you'll need to set up HTTPS or use Vercel deployment.
+### Option 3: Any static server
+Open the project root with any HTTP server (e.g. Live Server in VS Code, or `npx serve .`). Ensure the server root is the folder that contains `index.html`, `css/`, `js/`, and `api/`.
 
-### Vercel Deployment
+### iOS / real device
+- **Tremor test** needs **HTTPS** and a **user gesture** to request motion permission.
+- For local HTTPS you can use something like **ngrok** or **mkcert**; otherwise use a **Vercel** deployment.
 
-1. Install Vercel CLI:
-```bash
-npm i -g vercel
-```
+---
 
-2. Deploy:
-```bash
-vercel
-```
+## Deployment (Vercel)
 
-3. Set environment variables in Vercel dashboard:
-   - `MANUS_API_KEY` - Your Manus AI API key
+1. **Install Vercel CLI** (optional):
+   ```bash
+   npm i -g vercel
+   ```
 
-### API Keys
+2. **Deploy** from the project root:
+   ```bash
+   vercel
+   ```
+   Or connect the repo in the Vercel dashboard and deploy from there.
 
-#### Manus AI
+3. **Environment variable** (Vercel project → Settings → Environment Variables):
+   - **`MANUS_API_KEY`** – Your Manus AI API key (needed for doctor report and daily insights)
+
+4. **Node version**: The project uses Node 20 (`.nvmrc` and `package.json` engines). Vercel will use this for serverless functions.
+
+---
+
+## API key (Manus)
+
 1. Sign up at [manus.im](https://manus.im)
-2. Go to Settings > Integrations > API
-3. Generate an API key
+2. Go to **Settings → Integrations → API**
+3. Create an API key and set it as **`MANUS_API_KEY`** in Vercel (or in `.env` for local serverless testing)
 
-## Project Structure
+---
+
+## Project structure
 
 ```
 ParkinPal/
-├── index.html          # Main HTML file
+├── index.html              # Single-page app shell and config
 ├── css/
-│   └── styles.css      # Custom styles
+│   └── styles.css          # Custom styles and animations
 ├── js/
-│   ├── main.js         # App initialization and routing
-│   ├── utils.js        # Utility functions
-│   ├── storage.js      # LocalStorage operations
-│   ├── tremor-logic.js # DeviceMotion analysis
-│   ├── tremor-ui.js    # Tremor test interface
-│   ├── voice-logic.js  # Web Audio analysis
-│   ├── voice-ui.js     # Voice test interface
-│   ├── charts.js       # Chart.js configuration
-│   └── api.js          # API integration
-├── api/                # Vercel serverless functions
-│   └── manus.js        # Manus AI proxy
-├── vercel.json         # Vercel configuration
+│   ├── main.js             # App init, routing, report actions
+│   ├── utils.js            # Shared utilities
+│   ├── storage.js          # LocalStorage and demo data
+│   ├── tremor-logic.js     # Tremor analysis
+│   ├── tremor-ui.js        # Tremor test UI
+│   ├── voice-logic.js      # Voice analysis
+│   ├── voice-ui.js         # Voice test UI
+│   ├── audio-processor.worklet.js  # AudioWorklet RMS
+│   ├── charts.js           # Trends chart and report data
+│   └── api.js              # Manus: report + daily insight
+├── api/
+│   └── manus.js            # Vercel serverless Manus proxy
+├── assets/
+│   ├── tremor-icon.png
+│   └── voice-icon.png
+├── package.json
+├── vercel.json
+├── .nvmrc
 └── README.md
 ```
 
-## iOS Safari Requirements
+---
 
-The tremor test uses the DeviceMotion API which has specific requirements on iOS Safari:
+## Security and privacy
 
-1. **HTTPS Required**: The app must be served over HTTPS
-2. **User Gesture Required**: `DeviceMotionEvent.requestPermission()` must be called from a user interaction (button click)
-3. **Permission Prompt**: Users will see a browser permission dialog for motion sensor access
+- **API key**: Only stored in Vercel env; all Manus requests go through `api/manus.js`.
+- **Data**: Symptom data lives only in the browser’s LocalStorage; no backend database.
+- **AI**: Only aggregated scores and stats are sent in prompts (no raw audio or motion streams).
 
-## Security Notes
+---
 
-- API keys are stored as environment variables on Vercel
-- Serverless functions proxy all AI API calls
-- No sensitive data is transmitted to client-side code
-- All data is stored locally in the browser's LocalStorage
+## Browser support
 
-## Privacy
+- **iOS Safari 13+** (primary; required for DeviceMotion on iPhone/iPad)
+- Chrome, Firefox, Edge (desktop and Android)
+- Microphone and (on iOS) motion permissions must be granted by the user.
 
-- All symptom data is stored locally on the user's device
-- No data is sent to external servers except for AI report generation
-- AI prompts contain only aggregated scores, not personal information
-
-## Browser Support
-
-- iOS Safari 13+ (primary target)
-- Chrome (Android/Desktop)
-- Firefox
-- Edge
+---
 
 ## Limitations
 
-- DeviceMotion API is not available on all devices
-- Web Audio API requires user permission for microphone access
-- LocalStorage has a 5MB limit (quota management is implemented)
-- AI report generation requires internet connection
+- **DeviceMotion** is not available on all devices and requires HTTPS + user gesture on iOS.
+- **Speech recognition** is browser-dependent; word count and “retake” prompt only when supported.
+- **LocalStorage** is limited (e.g. 5MB); the app includes basic quota handling.
+- **AI** features (report and daily insights) require internet and a valid Manus API key.
+
+---
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT. See the LICENSE file for details.
