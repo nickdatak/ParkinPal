@@ -526,6 +526,24 @@ const VoiceUI = {
         this.state.testResults = results;
         this.state.audioData = results.audioData;
         
+        // Check if speech was recorded properly (at least 50% of expected words detected)
+        const expectedWordCount = 9; // "The quick brown fox jumps over the lazy dog"
+        const wordCount = results.wordCount || 0;
+        if (results.speechRecognitionSupported && wordCount < expectedWordCount * 0.5) {
+            App.setTestRunning(false);
+            const retake = confirm(
+                'Less than 50% of the expected words were detected. Speech may not have been recorded properly (e.g. quiet environment, unclear speech). Would you like to retake the test?'
+            );
+            if (retake) {
+                this.resetUI();
+                this.elements.startBtn.classList.remove('hidden');
+                this.elements.stopBtn.classList.add('hidden');
+                this.elements.results.classList.add('hidden');
+                setTimeout(() => this.startTest(), 300);
+                return;
+            }
+        }
+        
         // Set test running state
         App.setTestRunning(false);
         
