@@ -1,6 +1,6 @@
 /**
  * ParkinPal - LocalStorage Operations
- * 
+ *
  * Data Model:
  * {
  *   id: string,
@@ -10,8 +10,11 @@
  *   tremor_raw_data: number[],
  *   voice_score: 0-10,
  *   voice_duration: number,
- *   voice_pauses: number,
- *   voice_variance: number,
+ *   voice_vot: object,
+ *   voice_transition_stability: number,
+ *   voice_prosodic_decay: object,
+ *   voice_vowel_space: object,
+ *   voice_amplitude_jitter: number,
  *   notes: string
  * }
  */
@@ -138,8 +141,11 @@ const Storage = {
                 tremor_raw_data: [],
                 voice_score: null,
                 voice_duration: null,
-                voice_pauses: null,
-                voice_variance: null,
+                voice_vot: null,
+                voice_transition_stability: null,
+                voice_prosodic_decay: null,
+                voice_vowel_space: null,
+                voice_amplitude_jitter: null,
                 notes: '',
                 ...entry
             };
@@ -364,8 +370,6 @@ const Storage = {
                 tremor_raw_data: [],
                 voice_score: voiceScore,
                 voice_duration: 4.0 + Math.random() * 2,
-                voice_pauses: Math.floor(Math.random() * 3),
-                voice_variance: 0.03 + Math.random() * 0.05,
                 notes: ''
             });
         }

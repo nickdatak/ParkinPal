@@ -257,7 +257,7 @@ const Charts = {
             : 'No tremor data';
         
         const voiceInfo = entry.voice_score !== null
-            ? `Voice: ${entry.voice_score.toFixed(1)}, ${entry.voice_pauses} pauses`
+            ? `Voice: ${entry.voice_score.toFixed(1)}${entry.voice_duration != null ? `, ${entry.voice_duration}s` : ''}`
             : 'No voice data';
         
         Utils.showToast(`${tremorInfo}\n${voiceInfo}`, 'info', 4000);

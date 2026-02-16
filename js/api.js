@@ -7,6 +7,7 @@ const API = {
     // Configuration
     config: {
         manusEndpoint: '/api/manus',
+        voiceAnalyzeEndpoint: '/api/voice-analyze',
         maxPollAttempts: 30, // 30 attempts * 2 seconds = 60 seconds max
         pollInterval: 2000 // 2 seconds between polls
     },
@@ -410,6 +411,27 @@ Note: This summary is generated from self-tracked data using a mobile app. Score
         return paragraphs || `<p class="report-p">${html}</p>`;
     },
     
+    /**
+     * Analyze voice recording (sends to backend for Parselmouth + Whisper analysis)
+     * @param {string} audioBase64 - Base64-encoded WAV
+     * @returns {Promise<Object>} { score, duration, metrics, wordBoundaries }
+     */
+    async analyzeVoice(audioBase64) {
+        const response = await fetch(this.config.voiceAnalyzeEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audio: audioBase64 }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            const err = new Error(data.message || data.error || 'Voice analysis failed');
+            err.status = response.status;
+            err.details = data;
+            throw err;
+        }
+        return data;
+    },
+
     /**
      * Sleep helper
      * @param {number} ms - Milliseconds to sleep
