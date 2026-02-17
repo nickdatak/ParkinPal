@@ -13,15 +13,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Whisper model - pre-loaded at startup so requests don't timeout (base=139MB/6min; tiny=39MB/~1min)
+# Whisper model - faster-whisper uses CTranslate2, fits in 512MB on Render free tier (openai-whisper used 512MB+)
 _whisper_model = None
 
 
 def get_whisper_model():
     global _whisper_model
     if _whisper_model is None:
-        import whisper
-        _whisper_model = whisper.load_model("tiny")
+        from faster_whisper import WhisperModel
+        _whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
     return _whisper_model
 
 
@@ -30,10 +30,11 @@ app = FastAPI(title="ParkinPal Voice Analysis")
 
 @app.on_event("startup")
 async def load_whisper_at_startup():
-    """Pre-load Whisper so the first request doesn't timeout. Uses 'tiny' (~39MB) for faster startup on Render."""
+    """Pre-load Whisper at startup. faster-whisper tiny+int8 fits in 512MB (Render free tier limit)."""
     global _whisper_model
-    import whisper
-    _whisper_model = whisper.load_model("tiny")
+    from faster_whisper import WhisperModel
+    _whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -74,33 +75,22 @@ def decode_audio(base64_audio: str) -> Path:
         raise
 
 
-def get_word_boundaries(whisper_result: dict, duration: float) -> list[dict]:
-    """Extract word-level boundaries from Whisper result."""
+def words_from_faster_whisper(segments, duration: float) -> list[dict]:
+    """Extract word-level boundaries from faster-whisper segments."""
     words = []
-    for seg in whisper_result.get("segments", []):
-        seg_words = seg.get("words") or []
-        for w in seg_words:
-            word = (w.get("word") or "").strip().lower().rstrip(".,!?;:")
+    for segment in segments:
+        for w in (segment.words or []):
+            word = (w.word or "").strip().lower().rstrip(".,!?;:")
             if word:
-                words.append({
-                    "word": word,
-                    "start": float(w.get("start", 0)),
-                    "end": float(w.get("end", 0)),
-                })
-    # Fallback: if no word-level timestamps, use segment text split by spaces
-    if not words and whisper_result.get("text"):
-        segs = whisper_result.get("segments", [])
-        for seg in segs:
-            text = (seg.get("text") or "").strip()
-            s_start = float(seg.get("start", 0))
-            s_end = float(seg.get("end", duration))
+                words.append({"word": word, "start": float(w.start), "end": float(w.end)})
+    if not words:
+        for segment in segments:
+            text = (segment.text or "").strip().lower().split()
+            s_start, s_end = float(segment.start), float(segment.end)
             if not text:
                 continue
-            parts = text.lower().split()
-            if not parts:
-                continue
-            step = (s_end - s_start) / len(parts)
-            for i, part in enumerate(parts):
+            step = (s_end - s_start) / len(text)
+            for i, part in enumerate(text):
                 w = part.rstrip(".,!?;:")
                 if w:
                     words.append({
@@ -346,8 +336,9 @@ def analyze(request: AnalyzeRequest):
             raise HTTPException(status_code=400, detail="Recording too short (min 1 second)")
 
         model = get_whisper_model()
-        result = model.transcribe(str(audio_path), word_timestamps=True)
-        words = get_word_boundaries(result, duration)
+        segments, _ = model.transcribe(str(audio_path), word_timestamps=True)
+        segments = list(segments)
+        words = words_from_faster_whisper(segments, duration)
 
         metrics = {
             "vot": analyze_vot(sound, words),

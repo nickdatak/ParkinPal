@@ -1,6 +1,6 @@
 fastapi
 uvicorn
 praat-parselmouth
-openai-whisper
+faster-whisper
 numpy
 python-multipart
