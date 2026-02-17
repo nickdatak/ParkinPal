@@ -12,8 +12,9 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
-    const VOICE_BACKEND_URL = process.env.VOICE_BACKEND_URL;
-    const isSet = !!VOICE_BACKEND_URL && String(VOICE_BACKEND_URL).trim().length > 0;
+    const raw = process.env.VOICE_BACKEND_URL;
+    const VOICE_BACKEND_URL = raw ? String(raw).trim().replace(/^["']|["']$/g, '') : '';
+    const isSet = VOICE_BACKEND_URL.length > 0;
 
     if (!isSet) {
         return res.status(500).json({
