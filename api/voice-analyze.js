@@ -50,9 +50,20 @@ export default async function handler(req, res) {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            return res.status(response.status).json({
+            const status = response.status;
+            const technicalMsg = data.detail || data.message || response.statusText;
+
+            if (status === 502 || status === 503) {
+                return res.status(status).json({
+                    error: 'Voice backend temporarily unavailable',
+                    message: 'The voice analysis service is starting up or overloaded (Render free tier may take 30–60 seconds on first request). Please wait a moment and try again.',
+                    hint: technicalMsg ? `Server response: ${technicalMsg}` : undefined,
+                });
+            }
+
+            return res.status(status).json({
                 error: 'Voice analysis failed',
-                message: data.detail || data.message || response.statusText,
+                message: technicalMsg,
             });
         }
 
