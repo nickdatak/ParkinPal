@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Lazy-load Whisper to avoid slow startup
+# Whisper model - pre-loaded at startup so requests don't timeout (base=139MB/6min; tiny=39MB/~1min)
 _whisper_model = None
 
 
@@ -21,11 +21,19 @@ def get_whisper_model():
     global _whisper_model
     if _whisper_model is None:
         import whisper
-        _whisper_model = whisper.load_model("base")
+        _whisper_model = whisper.load_model("tiny")
     return _whisper_model
 
 
 app = FastAPI(title="ParkinPal Voice Analysis")
+
+
+@app.on_event("startup")
+async def load_whisper_at_startup():
+    """Pre-load Whisper so the first request doesn't timeout. Uses 'tiny' (~39MB) for faster startup on Render."""
+    global _whisper_model
+    import whisper
+    _whisper_model = whisper.load_model("tiny")
 
 app.add_middleware(
     CORSMiddleware,
