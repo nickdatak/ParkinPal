@@ -222,70 +222,192 @@ const TremorLogic = {
     },
     
     /**
-     * Detect tremor characteristics using zero-crossing analysis
-     * @param {number[]} data - Filtered magnitude data
-     * @returns {Object} Tremor characteristics
+     * In-place radix-2 FFT (Cooley-Tukey). Modifies real and imag arrays.
+     * @param {number[]} real - Real part (length must be power of 2)
+     * @param {number[]} imag - Imaginary part (same length)
+     */
+    _fft(real, imag) {
+        const N = real.length;
+        if (N <= 1) return;
+
+        // Bit-reversal permutation
+        let j = 0;
+        for (let i = 0; i < N; i++) {
+            if (i < j) {
+                [real[i], real[j]] = [real[j], real[i]];
+                [imag[i], imag[j]] = [imag[j], imag[i]];
+            }
+            let m = N >> 1;
+            while (m >= 1 && j >= m) {
+                j -= m;
+                m >>= 1;
+            }
+            j += m;
+        }
+
+        // Cooley-Tukey decimation-in-time
+        for (let len = 2; len <= N; len *= 2) {
+            const angle = -2 * Math.PI / len;
+            const wlenReal = Math.cos(angle);
+            const wlenImag = Math.sin(angle);
+            for (let i = 0; i < N; i += len) {
+                let wReal = 1;
+                let wImag = 0;
+                for (let j = 0; j < len / 2; j++) {
+                    const u = i + j;
+                    const v = u + len / 2;
+                    const tReal = real[v] * wReal - imag[v] * wImag;
+                    const tImag = real[v] * wImag + imag[v] * wReal;
+                    real[v] = real[u] - tReal;
+                    imag[v] = imag[u] - tImag;
+                    real[u] += tReal;
+                    imag[u] += tImag;
+                    const nextWReal = wReal * wlenReal - wImag * wlenImag;
+                    const nextWImag = wReal * wlenImag + wImag * wlenReal;
+                    wReal = nextWReal;
+                    wImag = nextWImag;
+                }
+            }
+        }
+    },
+
+    /**
+     * Compute power spectral density via FFT and return spectral features.
+     * @param {number[]} data - Real-valued signal (high-pass filtered magnitude)
+     * @param {number} sampleRate - Samples per second
+     * @returns {Object} { peakFrequency, tremorBandPower, totalPower, relativeTremorPower, binFreqs, psd } or null
+     */
+    _computeSpectrum(data, sampleRate) {
+        const N = data.length;
+        if (N < 4) return null;
+
+        // Zero-pad to next power of 2 for radix-2 FFT
+        let fftSize = 2;
+        while (fftSize < N) fftSize *= 2;
+
+        const real = new Array(fftSize);
+        const imag = new Array(fftSize);
+        for (let i = 0; i < fftSize; i++) {
+            real[i] = i < N ? data[i] : 0;
+            imag[i] = 0;
+        }
+
+        this._fft(real, imag);
+
+        // One-sided PSD: power in each positive frequency bin
+        // PSD[k] = (2/N^2) * |X[k]|^2 for k=1..N/2-1, DC and Nyquist scaled by 1/N^2
+        const half = fftSize / 2;
+        const scale = 1 / (fftSize * fftSize);
+        let totalPower = (real[0] * real[0] + imag[0] * imag[0]) * scale;
+        let tremorBandPower = 0;
+        let maxPower = 0;
+        let peakBin = 0;
+
+        const df = sampleRate / fftSize;
+        const tremorMinBin = Math.max(1, Math.floor(4 / df));
+        const tremorMaxBin = Math.min(half - 1, Math.ceil(6 / df));
+
+        for (let k = 1; k < half; k++) {
+            const power = 2 * (real[k] * real[k] + imag[k] * imag[k]) * scale;
+            totalPower += power;
+            if (k >= tremorMinBin && k <= tremorMaxBin) {
+                tremorBandPower += power;
+            }
+            if (power > maxPower) {
+                maxPower = power;
+                peakBin = k;
+            }
+        }
+        // Nyquist bin (if fftSize even)
+        const nyqPower = (real[half] * real[half] + imag[half] * imag[half]) * scale;
+        totalPower += nyqPower;
+        if (half >= tremorMinBin && half <= tremorMaxBin) {
+            tremorBandPower += nyqPower;
+        }
+        if (half > peakBin && nyqPower > maxPower) {
+            peakBin = half;
+        }
+
+        const peakFrequency = peakBin * df;
+        const relativeTremorPower = totalPower > 0 ? tremorBandPower / totalPower : 0;
+
+        return {
+            peakFrequency,
+            tremorBandPower,
+            totalPower,
+            relativeTremorPower,
+            df
+        };
+    },
+
+    /**
+     * Detect tremor characteristics using FFT-based power spectral density
+     * @param {number[]} data - High-pass filtered magnitude data
+     * @returns {Object} Tremor characteristics (peakFrequency, tremorBandPower, totalPower, relativeTremorPower; keeps frequency, amplitude, regularity, inTremorRange, duration)
      */
     detectTremor(data) {
         if (data.length < 10) {
             return {
                 frequency: 0,
                 amplitude: 0,
+                peakAmplitude: 0,
                 regularity: 0,
-                inTremorRange: false
+                inTremorRange: false,
+                peakFrequency: 0,
+                tremorBandPower: 0,
+                totalPower: 0,
+                relativeTremorPower: 0,
+                duration: 0
             };
         }
-        
-        // Count zero crossings
-        let zeroCrossings = 0;
-        for (let i = 1; i < data.length; i++) {
-            if ((data[i - 1] < 0 && data[i] >= 0) || 
-                (data[i - 1] >= 0 && data[i] < 0)) {
-                zeroCrossings++;
-            }
-        }
-        
-        // Calculate frequency from zero crossings
-        // Each full cycle has 2 zero crossings
-        const duration = this.state.rawData.length > 0 
-            ? (this.state.rawData[this.state.rawData.length - 1].time) / 1000 
+
+        const sampleRate = this.config.sampleRate;
+        const duration = this.state.rawData.length > 0
+            ? (this.state.rawData[this.state.rawData.length - 1].time) / 1000
             : this.config.testDuration / 1000;
-        
-        const frequency = (zeroCrossings / 2) / duration;
-        
-        // Calculate amplitude (RMS)
+
+        const spectrum = this._computeSpectrum(data, sampleRate);
+        let peakFrequency = 0;
+        let tremorBandPower = 0;
+        let totalPower = 0;
+        let relativeTremorPower = 0;
+
+        if (spectrum) {
+            peakFrequency = spectrum.peakFrequency;
+            tremorBandPower = spectrum.tremorBandPower;
+            totalPower = spectrum.totalPower;
+            relativeTremorPower = spectrum.relativeTremorPower;
+        }
+
+        // Time-domain amplitude (RMS) and peak for compatibility
         const sumSquares = data.reduce((sum, val) => sum + val * val, 0);
         const rms = Math.sqrt(sumSquares / data.length);
         const amplitude = rms;
-        
-        // Calculate peak amplitude
         const peakAmplitude = Math.max(...data.map(Math.abs));
-        
-        // Calculate regularity (consistency of oscillations)
-        // Using standard deviation of absolute values
+
+        // Regularity from time-domain (consistency of oscillations)
         const absValues = data.map(Math.abs);
         const avgAbs = absValues.reduce((a, b) => a + b, 0) / absValues.length;
-        const variance = absValues.reduce((sum, val) => 
+        const variance = absValues.reduce((sum, val) =>
             sum + Math.pow(val - avgAbs, 2), 0) / absValues.length;
         const stdDev = Math.sqrt(variance);
-        
-        // Regularity: lower variation = more regular tremor
-        // Normalize to 0-1 (1 = very regular)
-        const regularity = avgAbs > 0 
-            ? Math.max(0, 1 - (stdDev / avgAbs)) 
+        const regularity = avgAbs > 0
+            ? Math.max(0, 1 - (stdDev / avgAbs))
             : 0;
-        
-        // Check if frequency is in typical Parkinson's tremor range (4-6 Hz)
-        const inTremorRange = frequency >= this.config.tremorFreqMin && 
-                             frequency <= this.config.tremorFreqMax;
-        
+
+        const inTremorRange = peakFrequency >= this.config.tremorFreqMin &&
+            peakFrequency <= this.config.tremorFreqMax;
+
         return {
-            frequency: Math.round(frequency * 10) / 10,
+            frequency: Math.round(peakFrequency * 10) / 10,
             amplitude: Math.round(amplitude * 1000) / 1000,
             peakAmplitude: Math.round(peakAmplitude * 1000) / 1000,
             regularity: Math.round(regularity * 100) / 100,
             inTremorRange,
-            zeroCrossings,
+            peakFrequency: Math.round(peakFrequency * 100) / 100,
+            tremorBandPower: Math.round(tremorBandPower * 1e6) / 1e6,
+            totalPower: Math.round(totalPower * 1e6) / 1e6,
+            relativeTremorPower: Math.round(relativeTremorPower * 100) / 100,
             duration: Math.round(duration * 10) / 10
         };
     },
