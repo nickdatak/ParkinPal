@@ -13,11 +13,13 @@ export default async function handler(req, res) {
     }
 
     const VOICE_BACKEND_URL = process.env.VOICE_BACKEND_URL;
+    const isSet = !!VOICE_BACKEND_URL && String(VOICE_BACKEND_URL).trim().length > 0;
 
-    if (!VOICE_BACKEND_URL) {
+    if (!isSet) {
         return res.status(500).json({
             error: 'Voice backend not configured',
-            message: 'Please set VOICE_BACKEND_URL environment variable',
+            message: 'VOICE_BACKEND_URL is not set for this deployment. In Vercel: Settings → Environment Variables, add VOICE_BACKEND_URL and ensure it is enabled for Preview (not just Production). Then trigger a new deployment.',
+            hint: 'Preview deployments (branch/PR URLs) use a separate env scope. The variable must be checked for "Preview" when adding it.',
         });
     }
 

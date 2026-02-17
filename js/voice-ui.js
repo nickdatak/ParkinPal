@@ -372,7 +372,10 @@ const VoiceUI = {
             Utils.showToast('Test complete!', 'success');
         } catch (error) {
             Utils.hideLoading();
-            const msg = error.message || 'Analysis unavailable. Please try again.';
+            let msg = error.message || 'Analysis unavailable. Please try again.';
+            if (error.details?.hint) {
+                msg += '\n\n' + error.details.hint;
+            }
             this.showAnalysisError(msg);
         }
     },
@@ -380,6 +383,7 @@ const VoiceUI = {
     showAnalysisError(message) {
         if (this.elements.analysisError) {
             this.elements.analysisError.textContent = message;
+            this.elements.analysisError.style.whiteSpace = 'pre-line';
             this.elements.analysisError.classList.remove('hidden');
         }
         if (this.elements.retryBtn) {
@@ -418,7 +422,9 @@ const VoiceUI = {
             })
             .catch((error) => {
                 Utils.hideLoading();
-                this.showAnalysisError(error.message || 'Analysis failed. Please try again.');
+                let msg = error.message || 'Analysis failed. Please try again.';
+                if (error.details?.hint) msg += '\n\n' + error.details.hint;
+                this.showAnalysisError(msg);
             });
     },
 
