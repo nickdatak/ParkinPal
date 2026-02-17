@@ -119,12 +119,12 @@ const TremorLogic = {
             const z = accel.z ?? 0;
             
             let magnitude = Math.sqrt(x * x + y * y + z * z);
-            const usingGravity = hasAccel(event.acceleration);
-            this.state.usingGravityCompensated = usingGravity;
+            const hasGravityFreeAccel = hasAccel(event.acceleration);
+            this.state.usingGravityCompensated = hasGravityFreeAccel;
             
-            if (!usingGravity) {
+            if (!hasGravityFreeAccel) {
                 // Fallback: subtract EMA of magnitude to approximate gravity removal
-                if (magnitudeEma === null) magnitudeEma = magnitude;
+                if (magnitudeEma === null) magnitudeEma = 9.81;
                 else magnitudeEma = emaAlpha * magnitude + (1 - emaAlpha) * magnitudeEma;
                 magnitude = magnitude - magnitudeEma;
             }
@@ -238,7 +238,7 @@ const TremorLogic = {
             warnings.push('No movement detected; sensor may be off or phone stationary');
         }
 
-        const spikeThreshold = 8;
+        const spikeThreshold = this.state.usingGravityCompensated ? 4 : 8;
         let spikes = 0;
         for (let i = 1; i < magnitudes.length; i++) {
             if (Math.abs(magnitudes[i] - magnitudes[i - 1]) > spikeThreshold) spikes++;
@@ -256,10 +256,11 @@ const TremorLogic = {
     },
 
     /**
-     * Analyze recorded data for tremor characteristics
-     * Primary score from raw magnitude variability (std dev / range) so that
-     * any shaking (fast, slow, hard, light) is detected. Frequency/regularity
-     * used as modifiers for 4-6 Hz Parkinsonian tremor.
+     * Analyze recorded data for tremor characteristics.
+     * Final score is a weighted combination: 70% movement intensity (amplitude-based,
+     * from raw magnitude variability) and 30% frequency quality (4-6 Hz band power,
+     * peak proximity to 5 Hz, regularity). Bandpass-filtered signal drives FFT and
+     * Parkinsonian likelihood metrics.
      * @returns {Object} Analysis results
      */
     analyzeData() {
@@ -365,8 +366,8 @@ const TremorLogic = {
     },
 
     /**
-     * Second-order bandpass (2–15 Hz) using direct form II transposed biquad.
-     * Uses Butterworth coefficients from computeButterworth and actual sample rate when set.
+     * Fourth-order bandpass (2–15 Hz) by cascading two identical 2nd-order biquads (24 dB/octave rolloff).
+     * Sharper rejection of gravity leakage below 2 Hz and noise above 15 Hz than a single 2nd-order stage.
      * @param {number[]} data - Input magnitude samples
      * @returns {number[]} Filtered array (same length)
      */
@@ -376,7 +377,7 @@ const TremorLogic = {
         const { b, a } = this.computeButterworth(this.config.bandpassLow, this.config.bandpassHigh, sampleRate);
         const b0 = b[0], b1 = b[1], b2 = b[2], a1 = a[1], a2 = a[2];
         const out = new Array(data.length);
-        // Direct form II transposed: state w[n] = x[n] - a1*w[n-1] - a2*w[n-2], y[n] = b0*w[n] + b1*w[n-1] + b2*w[n-2]
+        // First pass: data -> out (Direct form II transposed biquad)
         let w1 = 0, w2 = 0;
         for (let n = 0; n < data.length; n++) {
             const w0 = data[n] - a1 * w1 - a2 * w2;
@@ -384,7 +385,17 @@ const TremorLogic = {
             w2 = w1;
             w1 = w0;
         }
-        return out;
+        // Second pass: out -> out (same coefficients, 4th-order Butterworth)
+        w1 = 0;
+        w2 = 0;
+        const out2 = new Array(data.length);
+        for (let n = 0; n < data.length; n++) {
+            const w0 = out[n] - a1 * w1 - a2 * w2;
+            out2[n] = b0 * w0 + b1 * w1 + b2 * w2;
+            w2 = w1;
+            w1 = w0;
+        }
+        return out2;
     },
     
     /**
@@ -447,6 +458,18 @@ const TremorLogic = {
         const N = data.length;
         if (N < 4) return null;
 
+        // Hann window w[n] = 0.5 * (1 - cos(2πn/(N-1))) to reduce spectral leakage (skip for N<3)
+        let meanW2 = 1;
+        const useWindow = N >= 3;
+        if (useWindow) {
+            let sumW2 = 0;
+            for (let n = 0; n < N; n++) {
+                const w = 0.5 * (1 - Math.cos(2 * Math.PI * n / (N - 1)));
+                sumW2 += w * w;
+            }
+            meanW2 = sumW2 / N;
+        }
+
         // Zero-pad to next power of 2 for radix-2 FFT
         let fftSize = 2;
         while (fftSize < N) fftSize *= 2;
@@ -454,16 +477,21 @@ const TremorLogic = {
         const real = new Array(fftSize);
         const imag = new Array(fftSize);
         for (let i = 0; i < fftSize; i++) {
-            real[i] = i < N ? data[i] : 0;
+            if (i < N) {
+                const w = useWindow ? 0.5 * (1 - Math.cos(2 * Math.PI * i / (N - 1))) : 1;
+                real[i] = data[i] * w;
+            } else {
+                real[i] = 0;
+            }
             imag[i] = 0;
         }
 
         this._fft(real, imag);
 
-        // One-sided PSD: power in each positive frequency bin
-        // PSD[k] = (2/N^2) * |X[k]|^2 for k=1..N/2-1, DC and Nyquist scaled by 1/N^2
+        // One-sided PSD: power in each positive frequency bin, corrected for window energy loss
+        // scale = 1/(fftSize^2) / mean(w^2) so power is compensated for Hann window
         const half = fftSize / 2;
-        const scale = 1 / (fftSize * fftSize);
+        const scale = 1 / (fftSize * fftSize * meanW2);
         let totalPower = (real[0] * real[0] + imag[0] * imag[0]) * scale;
         let tremorBandPower = 0;
         let maxPower = 0;
