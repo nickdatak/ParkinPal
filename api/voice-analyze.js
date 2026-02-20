@@ -13,7 +13,11 @@ export default async function handler(req, res) {
     }
 
     const raw = process.env.VOICE_BACKEND_URL;
-    const VOICE_BACKEND_URL = raw ? String(raw).trim().replace(/^["']|["']$/g, '') : '';
+    const host = (req.headers?.host || '').toLowerCase();
+    const isLocalDev = host.includes('localhost') || host.includes('127.0.0.1');
+    const defaultForDev = (process.env.VERCEL_ENV === 'development' || isLocalDev) ? 'http://localhost:8000' : '';
+    const resolved = (raw ? String(raw).trim().replace(/^["']|["']$/g, '') : '') || defaultForDev;
+    const VOICE_BACKEND_URL = resolved;
     const isSet = VOICE_BACKEND_URL.length > 0;
 
     if (!isSet) {

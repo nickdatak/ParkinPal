@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.root
 
 # Vercel
 .vercel
@@ -22,3 +23,13 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+debug-*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.pytest_cache/
+.venv/
+venv/

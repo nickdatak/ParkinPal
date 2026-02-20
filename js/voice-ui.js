@@ -11,7 +11,8 @@ const VoiceUI = {
         testResults: null,
         audioData: null,
         amplitudeHistory: [],
-        recordingStartTime: null
+        recordingStartTime: null,
+        phraseMismatch: false
     },
 
     elements: {},
@@ -57,7 +58,14 @@ const VoiceUI = {
         this.elements.playbackBtn.addEventListener('click', () => this.playRecording());
         this.elements.saveBtn.addEventListener('click', () => this.saveResults());
         if (this.elements.retryBtn) {
-            this.elements.retryBtn.addEventListener('click', () => this.retryAnalysis());
+            this.elements.retryBtn.addEventListener('click', () => {
+                if (this.state.phraseMismatch) {
+                    this.state.phraseMismatch = false;
+                    this.resetUI();
+                } else {
+                    this.retryAnalysis();
+                }
+            });
         }
     },
 
@@ -368,8 +376,13 @@ const VoiceUI = {
 
             Utils.hideLoading();
             this.state.testResults = { ...analysis, audioData };
-            this.displayResults(analysis);
-            Utils.showToast('Test complete!', 'success');
+            if (analysis.suggestRetake === true) {
+                this.showPhraseMismatchError();
+            } else {
+                this.state.phraseMismatch = false;
+                this.displayResults(analysis);
+                Utils.showToast('Test complete!', 'success');
+            }
         } catch (error) {
             Utils.hideLoading();
             let msg = error.message || 'Analysis unavailable. Please try again.';
@@ -387,6 +400,7 @@ const VoiceUI = {
             this.elements.analysisError.classList.remove('hidden');
         }
         if (this.elements.retryBtn) {
+            this.elements.retryBtn.textContent = 'Retry Analysis';
             this.elements.retryBtn.classList.remove('hidden');
         }
         if (this.elements.score) {
@@ -399,6 +413,32 @@ const VoiceUI = {
             this.elements.metricsDetails.classList.add('hidden');
         }
         this.state.testResults = { audioData: this.state.audioData };
+        this.state.phraseMismatch = false;
+    },
+
+    showPhraseMismatchError() {
+        if (this.elements.analysisError) {
+            this.elements.analysisError.textContent = "The phrase wasn't recognized clearly. Please read the phrase again and retake the test.";
+            this.elements.analysisError.style.whiteSpace = 'pre-line';
+            this.elements.analysisError.classList.remove('hidden');
+        }
+        if (this.elements.score) {
+            this.elements.score.textContent = '-';
+        }
+        if (this.elements.duration) {
+            this.elements.duration.textContent = '-';
+        }
+        if (this.elements.metricsDetails) {
+            this.elements.metricsDetails.classList.add('hidden');
+        }
+        if (this.elements.retryBtn) {
+            this.elements.retryBtn.textContent = 'Retake Test';
+            this.elements.retryBtn.classList.remove('hidden');
+        }
+        if (this.elements.saveBtn) {
+            this.elements.saveBtn.disabled = true;
+        }
+        this.state.phraseMismatch = true;
     },
 
     retryAnalysis() {
@@ -417,8 +457,13 @@ const VoiceUI = {
             .then((analysis) => {
                 Utils.hideLoading();
                 this.state.testResults = { ...analysis, audioData: this.state.audioData };
-                this.displayResults(analysis);
-                Utils.showToast('Analysis complete!', 'success');
+                if (analysis.suggestRetake === true) {
+                    this.showPhraseMismatchError();
+                } else {
+                    this.state.phraseMismatch = false;
+                    this.displayResults(analysis);
+                    Utils.showToast('Analysis complete!', 'success');
+                }
             })
             .catch((error) => {
                 Utils.hideLoading();
@@ -429,6 +474,7 @@ const VoiceUI = {
     },
 
     displayResults(analysis) {
+        this.state.phraseMismatch = false;
         if (this.elements.analysisError) this.elements.analysisError.classList.add('hidden');
         if (this.elements.retryBtn) this.elements.retryBtn.classList.add('hidden');
 
@@ -560,6 +606,7 @@ const VoiceUI = {
         this.state.audioData = null;
         this.state.amplitudeHistory = [];
         this.state.recordingStartTime = null;
+        this.state.phraseMismatch = false;
 
         this.elements.timer.classList.add('hidden');
         this.elements.waveformContainer.classList.add('hidden');

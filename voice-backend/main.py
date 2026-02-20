@@ -101,6 +101,41 @@ def words_from_faster_whisper(segments, duration: float) -> list[dict]:
     return words
 
 
+PHRASE_MATCH_THRESHOLD_PERCENT = 75
+
+
+def compute_phrase_match(words: list[dict], target_words: list[str]) -> dict:
+    """Compare transcribed words to target phrase. Returns match stats (no transcription)."""
+    transcribed = [w["word"].lower() for w in words]
+    target = [w.lower() for w in target_words]
+    total = len(target)
+
+    if total == 0:
+        return {"wordsMatched": 0, "totalWords": 0, "phraseMatchPercent": 0}
+
+    ti = 0
+    matched = 0
+    for tw in transcribed:
+        if ti >= len(target):
+            break
+        if tw == target[ti]:
+            matched += 1
+            ti += 1
+        elif tw in target[ti:]:
+            while ti < len(target) and target[ti] != tw:
+                ti += 1
+            if ti < len(target):
+                matched += 1
+                ti += 1
+
+    percent = round(100 * matched / total) if total else 0
+    return {
+        "wordsMatched": matched,
+        "totalWords": total,
+        "phraseMatchPercent": percent,
+    }
+
+
 def analyze_vot(sound: parselmouth.Sound, words: list[dict]) -> dict:
     """Voice Onset Time for /k/ in quick, /b/ in brown, /p/ in jumps."""
     vot_results = {}
@@ -336,9 +371,16 @@ def analyze(request: AnalyzeRequest):
             raise HTTPException(status_code=400, detail="Recording too short (min 1 second)")
 
         model = get_whisper_model()
-        segments, _ = model.transcribe(str(audio_path), word_timestamps=True)
+        segments, _ = model.transcribe(
+            str(audio_path),
+            word_timestamps=True,
+            initial_prompt="The quick brown fox jumps over the lazy dog",
+        )
         segments = list(segments)
         words = words_from_faster_whisper(segments, duration)
+
+        phrase_match = compute_phrase_match(words, TARGET_PHRASE_WORDS)
+        suggest_retake = phrase_match["phraseMatchPercent"] < PHRASE_MATCH_THRESHOLD_PERCENT
 
         metrics = {
             "vot": analyze_vot(sound, words),
@@ -350,12 +392,16 @@ def analyze(request: AnalyzeRequest):
 
         score = compute_score(metrics, duration)
 
-        return {
+        result = {
             "score": score,
             "duration": round(duration, 1),
             "metrics": metrics,
             "wordBoundaries": words,
+            "phraseMatch": phrase_match,
         }
+        if suggest_retake:
+            result["suggestRetake"] = True
+        return result
     except HTTPException:
         raise
     except Exception as e:
