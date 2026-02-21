@@ -449,7 +449,22 @@ Note: This summary is generated from self-tracked data using a mobile app. Score
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ audio: audioBase64 }),
         });
-        const data = await response.json();
+        const text = await response.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (parseErr) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c5d082'},body:JSON.stringify({sessionId:'c5d082',location:'api.js:analyzeVoice',message:'Non-JSON response received',data:{status:response.status,bodyPreview:text.slice(0,80)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+            // #endregion
+            const msg = response.ok
+                ? 'Voice analysis returned invalid data. Please try again.'
+                : 'The voice service is busy or temporarily unavailable. Please wait a moment and try again.';
+            const err = new Error(msg);
+            err.status = response.status;
+            err.details = { hint: 'Timeout or gateway error—response was not valid JSON.' };
+            throw err;
+        }
         if (!response.ok) {
             const err = new Error(data.message || data.error || 'Voice analysis failed');
             err.status = response.status;

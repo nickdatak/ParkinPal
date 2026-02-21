@@ -43,13 +43,17 @@ export default async function handler(req, res) {
 
     try {
         const backendUrl = VOICE_BACKEND_URL.replace(/\/$/, '') + '/analyze';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 55_000);
         const response = await fetch(backendUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ audio }),
+            signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         const data = await response.json().catch(() => ({}));
 
@@ -74,6 +78,12 @@ export default async function handler(req, res) {
         return res.status(200).json(data);
     } catch (error) {
         console.error('Voice analysis proxy error:', error);
+        if (error.name === 'AbortError') {
+            return res.status(504).json({
+                error: 'Voice backend timeout',
+                message: 'The voice analysis service took too long to respond (Render free tier may spin up slowly). Please wait a moment and try again.',
+            });
+        }
         return res.status(500).json({
             error: 'Voice analysis unavailable',
             message: error.message || 'Please try again later',
