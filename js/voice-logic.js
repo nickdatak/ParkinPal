@@ -546,7 +546,6 @@ const VoiceLogic = {
         const segments = [];
         let currentSegment = null;
         let silenceCount = 0;
-        let pauseCount = 0;
         let speakingDuration = 0;
         
         for (let i = 0; i < amplitudes.length; i++) {
@@ -569,7 +568,6 @@ const VoiceLogic = {
                         // End current segment
                         segments.push(currentSegment);
                         currentSegment = null;
-                        pauseCount++;
                     }
                 }
             }
@@ -579,6 +577,9 @@ const VoiceLogic = {
         if (currentSegment !== null) {
             segments.push(currentSegment);
         }
+        
+        // Pause count = gaps between speech segments only (excludes leading/trailing silence)
+        const pauseCount = Math.max(0, segments.length - 1);
         
         // Calculate total speaking duration
         for (const segment of segments) {
@@ -772,6 +773,28 @@ const VoiceLogic = {
      */
     getTargetPhrase() {
         return this.config.targetPhrase;
+    },
+
+    /**
+     * Count how many target phrase words appear in the recognized text
+     * @param {string} recognizedText - Text from speech recognition
+     * @returns {number} Number of target words matched (0-9)
+     */
+    countMatchingTargetWords(recognizedText) {
+        if (!recognizedText || typeof recognizedText !== 'string') return 0;
+        const normalize = (w) => w.toLowerCase().replace(/[^\w]/g, '');
+        const targetWords = this.config.targetPhrase.split(/\s+/).map(normalize).filter(w => w.length > 0);
+        const recognizedWords = recognizedText.split(/\s+/).map(normalize).filter(w => w.length > 0);
+        let matchedCount = 0;
+        const recognizedCopy = [...recognizedWords];
+        for (const targetWord of targetWords) {
+            const idx = recognizedCopy.findIndex(w => w === targetWord);
+            if (idx >= 0) {
+                matchedCount++;
+                recognizedCopy.splice(idx, 1);
+            }
+        }
+        return matchedCount;
     },
     
     /**

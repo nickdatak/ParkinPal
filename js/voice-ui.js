@@ -44,6 +44,7 @@ const VoiceUI = {
             wordCount: document.getElementById('voice-word-count'),
             playbackBtn: document.getElementById('voice-playback'),
             saveBtn: document.getElementById('voice-save'),
+            retakeBtn: document.getElementById('voice-retake'),
             insight: document.getElementById('voice-insight'),
             insightText: document.getElementById('voice-insight-text'),
             // New transcript elements
@@ -54,8 +55,7 @@ const VoiceUI = {
             targetPhrase: document.getElementById('voice-target-phrase'),
             // Soundwave elements
             soundwaveContainer: document.getElementById('voice-soundwave-container'),
-            soundwave: document.getElementById('voice-soundwave'),
-            soundwaveDuration: document.getElementById('voice-soundwave-duration')
+            soundwave: document.getElementById('voice-soundwave')
         };
         
         // Setup event listeners
@@ -81,6 +81,7 @@ const VoiceUI = {
         this.elements.stopBtn.addEventListener('click', () => this.stopTest());
         this.elements.playbackBtn.addEventListener('click', () => this.playRecording());
         this.elements.saveBtn.addEventListener('click', () => this.saveResults());
+        this.elements.retakeBtn.addEventListener('click', () => this.retakeTest());
     },
     
     /**
@@ -189,11 +190,6 @@ const VoiceUI = {
         ctx.lineTo(width, height / 2);
         ctx.stroke();
         
-        // Update duration display
-        if (this.state.recordingStartTime && this.elements.soundwaveDuration) {
-            const elapsed = (Date.now() - this.state.recordingStartTime) / 1000;
-            this.elements.soundwaveDuration.textContent = `${elapsed.toFixed(1)}s`;
-        }
     },
     
     /**
@@ -351,9 +347,6 @@ const VoiceUI = {
         }
         this.state.amplitudeHistory = [];
         this.state.recordingStartTime = Date.now();
-        if (this.elements.soundwaveDuration) {
-            this.elements.soundwaveDuration.textContent = '0.0s';
-        }
         
         // Set test running state
         App.setTestRunning(true);
@@ -526,13 +519,15 @@ const VoiceUI = {
         this.state.testResults = results;
         this.state.audioData = results.audioData;
         
-        // Check if speech was recorded properly (at least 50% of expected words detected)
-        const expectedWordCount = 9; // "The quick brown fox jumps over the lazy dog"
-        const wordCount = results.wordCount || 0;
-        if (results.speechRecognitionSupported && wordCount < expectedWordCount * 0.5) {
+        // Check if at least 7 of 9 target words were recognized
+        const minMatchingWords = 7;
+        const matchingWords = results.speechRecognitionSupported
+            ? VoiceLogic.countMatchingTargetWords(results.recognizedText || '')
+            : 9; // Skip check if speech recognition not supported
+        if (results.speechRecognitionSupported && matchingWords < minMatchingWords) {
             App.setTestRunning(false);
             const retake = confirm(
-                'Less than 50% of the expected words were detected. Speech may not have been recorded properly (e.g. quiet environment, unclear speech). Would you like to retake the test?'
+                `Only ${matchingWords} of the 9 target words were recognized. Please read the phrase clearly and try again. Would you like to retake the test?`
             );
             if (retake) {
                 this.resetUI();
@@ -558,12 +553,6 @@ const VoiceUI = {
         }
         if (this.elements.waveformContainer) {
             this.elements.waveformContainer.classList.add('hidden');
-        }
-        
-        // Update soundwave duration and draw full recording waveform
-        if (this.elements.soundwaveDuration) {
-            const totalDuration = (Date.now() - this.state.recordingStartTime) / 1000;
-            this.elements.soundwaveDuration.textContent = `${totalDuration.toFixed(1)}s`;
         }
         
         // Draw the full recording waveform (compressed view)
@@ -642,6 +631,13 @@ const VoiceUI = {
         this.elements.playbackBtn.disabled = false;
     },
     
+    /**
+     * Retake the voice test
+     */
+    retakeTest() {
+        this.startTest();
+    },
+
     /**
      * Save test results
      */

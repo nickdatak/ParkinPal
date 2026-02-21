@@ -277,9 +277,8 @@
                 
                 <!-- Soundwave Visualization (persists after recording) -->
                 <div id="voice-soundwave-container" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden border border-gray-100">
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="mb-2">
                         <h4 class="font-medium text-gray-700 text-sm">Voice Recording</h4>
-                        <span id="voice-soundwave-duration" class="text-xs text-gray-800 font-medium">0.0s</span>
                     </div>
                     <canvas id="voice-soundwave" class="w-full h-20 rounded-lg" height="80" style="background: linear-gradient(180deg, #E8F6FC 0%, #D4EFFA 100%);"></canvas>
                 </div>
@@ -331,8 +330,12 @@
                             Play Recording
                         </button>
                         
-                        <button id="voice-save" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg min-h-[44px] active:scale-[0.98] active:shadow-sm border border-gray-200">
+                        <button id="voice-save" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg mb-3 min-h-[44px] active:scale-[0.98] active:shadow-sm border border-gray-200">
                             Save Results
+                        </button>
+
+                        <button id="voice-retake" class="w-full bg-white hover:bg-gray-50 text-gray-800 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg min-h-[44px] active:scale-[0.98] active:shadow-sm border border-gray-200">
+                            Retake Test
                         </button>
                     </div>
                     
