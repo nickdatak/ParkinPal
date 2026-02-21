@@ -19,9 +19,10 @@
 - Uses the **Web Audio API** and an **AudioWorklet** (or ScriptProcessor fallback) for recording
 - **Web Speech API** for live transcript and word count
 - **7-second** recording after a short countdown; user reads: *“The quick brown fox jumps over the lazy dog”*
-- Analyzes: speaking time, pauses (silence ≥ 0.3 s), volume variance
+- Analyzes: speaking time, pauses between speech segments (silence ≥ 0.3 s; leading/trailing silence excluded), volume variance
 - Produces a **voice score (0–10)**
-- If fewer than 50% of expected words are detected, the app can prompt to retake the test
+- If fewer than **7 of 9** target words are recognized, the app prompts to retake the test
+- **Retake Test** button in case user wants to redo the test, after viewing results
 - Playback of the recording and optional save
 
 ### Data & Trends
