@@ -37,7 +37,11 @@ const VoiceLogic = {
         recognizedText: '',
         wordCount: 0,
         speechRecognitionSupported: false,
-        onTranscriptUpdate: null // Callback for transcript updates
+        onTranscriptUpdate: null, // Callback for transcript updates
+        // Frequency data for formant/vowel analysis
+        frequencyHistory: [],
+        frequencyPollId: null,
+        frequencyDataArray: null
     },
     
     /**
@@ -245,13 +249,16 @@ const VoiceLogic = {
             fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'About to setup audio processing',data:{audioWorkletSupported:workletSupported},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'AUDIO'})}).catch(()=>{});
             // #endregion
             
+            // Connect source through analyser (for frequency capture) then to processing
+            source.connect(this.state.analyser);
+            
             // Try to use AudioWorklet, fall back to ScriptProcessor
             if (this.isAudioWorkletSupported()) {
                 try {
                     // #region agent log
                     fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'Attempting AudioWorklet setup',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'WORKLET'})}).catch(()=>{});
                     // #endregion
-                    await this.setupAudioWorklet(source, onAmplitude);
+                    await this.setupAudioWorklet(this.state.analyser, onAmplitude);
                     this.state.useAudioWorklet = true;
                     console.log('Using AudioWorklet for audio processing');
                 } catch (workletError) {
@@ -259,20 +266,29 @@ const VoiceLogic = {
                     fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'AudioWorklet FAILED - falling back',data:{error:workletError.message,errorName:workletError.name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'WORKLET'})}).catch(()=>{});
                     // #endregion
                     console.warn('AudioWorklet failed, falling back to ScriptProcessor:', workletError);
-                    this.setupScriptProcessor(source, onAmplitude);
+                    this.setupScriptProcessor(this.state.analyser, onAmplitude);
                     this.state.useAudioWorklet = false;
                 }
             } else {
                 // #region agent log
                 fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'Using ScriptProcessor (no AudioWorklet)',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'SCRIPT'})}).catch(()=>{});
                 // #endregion
-                this.setupScriptProcessor(source, onAmplitude);
+                this.setupScriptProcessor(this.state.analyser, onAmplitude);
                 this.state.useAudioWorklet = false;
                 console.log('Using ScriptProcessor (AudioWorklet not supported)');
             }
             
-            // Connect analyser
-            source.connect(this.state.analyser);
+            // Start frequency capture loop for formant/vowel analysis
+            this.state.frequencyHistory = [];
+            this.state.frequencyDataArray = new Float32Array(this.state.analyser.frequencyBinCount);
+            this.state.frequencyPollId = setInterval(() => {
+                if (!this.state.isRecording || !this.state.analyser) return;
+                this.state.analyser.getFloatFrequencyData(this.state.frequencyDataArray);
+                this.state.frequencyHistory.push({
+                    time: Date.now() - this.state.startTime,
+                    spectrum: Array.from(this.state.frequencyDataArray)
+                });
+            }, 50);
             
             // Initialize and start speech recognition
             if (this.initSpeechRecognition()) {
@@ -459,7 +475,8 @@ const VoiceLogic = {
                 pauses: 0,
                 variance: 0,
                 speakingRate: 0,
-                details: { error: 'Insufficient data' }
+                details: { error: 'Insufficient data' },
+                metrics: null
             };
         }
         
@@ -475,6 +492,33 @@ const VoiceLogic = {
         // Detect speaking segments and pauses
         const { speakingDuration, pauseCount, segments } = this.detectSpeechSegments(amplitudes);
         
+        // Calculate time per amplitude reading
+        let avgTimePerReading = 0;
+        if (this.state.amplitudeData.length > 1) {
+            const totalTime = this.state.amplitudeData[this.state.amplitudeData.length - 1].time - this.state.amplitudeData[0].time;
+            avgTimePerReading = totalTime / (this.state.amplitudeData.length - 1);
+        } else {
+            avgTimePerReading = (this.config.bufferSize / this.config.sampleRate) * 1000;
+        }
+        const secondsPerReading = avgTimePerReading / 1000;
+        
+        // Five speech metrics
+        const rawAudio = this.combineAudioBuffers();
+        let vot, transitions, fatigue, vowels, steadiness;
+        try {
+            vot = this.analyzeVOT(rawAudio, this.config.sampleRate);
+            transitions = this.analyzeTransitions(amplitudes, segments, this.state.frequencyHistory, secondsPerReading);
+            fatigue = this.analyzeFatigue(this.state.amplitudeData, segments, secondsPerReading);
+            vowels = rawAudio && rawAudio.length > 0 ? this.analyzeVowelHNR(rawAudio, this.config.sampleRate) : { hnrDb: null, severity: null };
+            steadiness = this.analyzeSteadiness(amplitudes, this.config.silenceThreshold);
+        } catch (e) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c1b23'},body:JSON.stringify({sessionId:'4c1b23',location:'voice-logic.js:analyzeAudio:metricsError',message:'Metric analyzer threw',data:{error:String(e),name:e?.name},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+            // #endregion
+            throw e;
+        }
+        const metrics = { vot, transitions, fatigue, vowels, steadiness };
+        
         // Calculate volume variance (standard deviation)
         const speakingAmplitudes = amplitudes.filter(a => a > this.config.silenceThreshold);
         const variance = speakingAmplitudes.length > 0 
@@ -487,13 +531,14 @@ const VoiceLogic = {
             ? (actualWordCount / speakingDuration) * 60
             : 0;
         
-        // Calculate score
+        // Calculate score (including metric penalties)
         const score = this.calculateScore({
             speakingDuration,
             pauseCount,
             speakingRate,
             wordCount: actualWordCount,
-            speechRecognitionAvailable: this.state.speechRecognitionSupported
+            speechRecognitionAvailable: this.state.speechRecognitionSupported,
+            metrics
         });
         
         return {
@@ -502,6 +547,7 @@ const VoiceLogic = {
             pauses: pauseCount,
             variance: Math.round(variance * 1000) / 1000,
             speakingRate: Math.round(speakingRate),
+            metrics,
             details: {
                 totalDuration: this.state.amplitudeData.length > 0
                     ? this.state.amplitudeData[this.state.amplitudeData.length - 1].time / 1000
@@ -569,7 +615,11 @@ const VoiceLogic = {
                         // End current segment
                         segments.push(currentSegment);
                         currentSegment = null;
-                        pauseCount++;
+                        // Only count as pause if there's more speech after this silence (ignore trailing silence)
+                        const hasMoreSpeech = amplitudes.slice(i + 1).some(a => a > threshold);
+                        if (hasMoreSpeech) {
+                            pauseCount++;
+                        }
                     }
                 }
             }
@@ -593,65 +643,396 @@ const VoiceLogic = {
     },
     
     /**
+     * Check if a window contains voiced (periodic) sound via autocorrelation.
+     * Burst/aspiration are aperiodic; voicing has clear periodicity in F0 range.
+     * @param {Float32Array} samples - Audio window (~15ms)
+     * @param {number} sampleRate - Sample rate in Hz
+     * @returns {boolean}
+     */
+    isVoiced(samples, sampleRate) {
+        const SIZE = samples.length;
+        const minLag = Math.floor(sampleRate / 400);  // 400 Hz max F0
+        const maxLag = Math.floor(sampleRate / 80);   // 80 Hz min F0
+        if (minLag >= maxLag || maxLag >= SIZE / 2) return false;
+        
+        let energy = 0;
+        for (let i = 0; i < SIZE; i++) energy += samples[i] * samples[i];
+        if (energy < 1e-10) return false;
+        
+        let maxCorr = 0;
+        for (let lag = minLag; lag < maxLag && lag < SIZE / 2; lag++) {
+            let sum = 0;
+            for (let j = 0; j < SIZE - lag; j++) {
+                sum += samples[j] * samples[j + lag];
+            }
+            const corr = sum / energy;
+            if (corr > maxCorr) maxCorr = corr;
+        }
+        return maxCorr > 0.25;
+    },
+    
+    /**
+     * Find plosive burst frame indices from RMS envelope.
+     * Burst = sudden RMS spike above baseline (prior 50ms).
+     * @param {number[]} envelope - RMS per frame
+     * @param {number} hopMs - Hop size in ms
+     * @param {number} lookbackMs - Baseline lookback in ms
+     * @param {number} minSpacingFrames - Min frames between bursts (avoid duplicates)
+     * @returns {number[]} Burst frame indices
+     */
+    findBurstFrames(envelope, hopMs, lookbackMs, minSpacingFrames) {
+        const lookbackFrames = Math.max(1, Math.floor(lookbackMs / hopMs));
+        const minThreshold = 0.015;
+        const bursts = [];
+        let lastBurstFrame = -minSpacingFrames - 1;
+        
+        for (let i = lookbackFrames; i < envelope.length; i++) {
+            if (i - lastBurstFrame < minSpacingFrames) continue;
+            const prior = envelope.slice(i - lookbackFrames, i);
+            const sorted = [...prior].sort((a, b) => a - b);
+            const baseline = sorted[Math.floor(sorted.length / 2)] || 0.01;
+            if (envelope[i] > 1.5 * baseline && envelope[i] > minThreshold) {
+                bursts.push(i);
+                lastBurstFrame = i;
+            }
+        }
+        return bursts;
+    },
+    
+    /**
+     * Analyze Voice Onset Time (VOT) - gap between plosive burst and vowel.
+     * Uses autocorrelation for voicing onset (burst/aspiration are aperiodic).
+     * @param {Float32Array} rawAudio - Raw audio samples
+     * @param {number} sampleRate - Sample rate in Hz
+     * @returns {Object|null} { avgVotMs, count, status } or null
+     */
+    analyzeVOT(rawAudio, sampleRate) {
+        if (!rawAudio || rawAudio.length < sampleRate * 0.1) return null;
+        
+        const envWindowSize = Math.floor(sampleRate * 0.005);  // 5ms
+        const hopSize = Math.floor(sampleRate * 0.0025);      // 2.5ms
+        const hopMs = 2.5;
+        const acWindowSamples = Math.floor(sampleRate * 0.015);  // 15ms for autocorrelation
+        
+        const envelope = [];
+        for (let i = 0; i <= rawAudio.length - envWindowSize; i += hopSize) {
+            let sum = 0;
+            for (let j = 0; j < envWindowSize; j++) {
+                sum += rawAudio[i + j] * rawAudio[i + j];
+            }
+            envelope.push(Math.sqrt(sum / envWindowSize));
+        }
+        
+        if (envelope.length < 25) return null;  // Need ~60ms minimum
+        
+        const bursts = this.findBurstFrames(envelope, hopMs, 50, 40);  // 40 frames = 100ms min spacing
+        const votMeasurements = [];
+        const maxVots = 5;
+        const rmsThreshold = 0.02;
+        const maxScanSteps = 80;  // 200ms forward
+        const votMinMs = 5;
+        const votMaxMs = 200;
+        
+        for (const burstFrame of bursts) {
+            if (votMeasurements.length >= maxVots) break;
+            const burstSampleIndex = burstFrame * hopSize;
+            let consecutiveVoiced = 0;
+            let voicingStepIndex = -1;
+            
+            for (let step = 0; step < maxScanSteps; step++) {
+                const winStart = burstSampleIndex + step * hopSize;
+                if (winStart + acWindowSamples > rawAudio.length) break;
+                const window = rawAudio.slice(winStart, winStart + acWindowSamples);
+                const isVoicedAC = this.isVoiced(window, sampleRate);
+                if (isVoicedAC) {
+                    consecutiveVoiced++;
+                    if (consecutiveVoiced >= 2) {
+                        voicingStepIndex = step - 1;
+                        break;
+                    }
+                } else {
+                    consecutiveVoiced = 0;
+                }
+            }
+            
+            // Fallback: if autocorrelation found no voicing, use sustained RMS above threshold
+            if (voicingStepIndex < 0) {
+                let consecutiveHighRms = 0;
+                for (let step = 0; step < maxScanSteps; step++) {
+                    const frameIdx = burstFrame + step;
+                    if (frameIdx >= envelope.length) break;
+                    if (envelope[frameIdx] > rmsThreshold) {
+                        consecutiveHighRms++;
+                        if (consecutiveHighRms >= 3) {
+                            voicingStepIndex = Math.max(0, step - 2);
+                            break;
+                        }
+                    } else {
+                        consecutiveHighRms = 0;
+                    }
+                }
+            }
+            
+            if (voicingStepIndex >= 0) {
+                const votMs = voicingStepIndex * hopMs;
+                if (votMs >= votMinMs && votMs <= votMaxMs) votMeasurements.push(votMs);
+            }
+        }
+        
+        if (votMeasurements.length === 0) {
+            return { avgVotMs: null, count: 0, severity: null };
+        }
+        const avgVotMs = votMeasurements.reduce((a, b) => a + b, 0) / votMeasurements.length;
+        // severity 0-2: Percentile-based (Parkinson's bands). 20-50=0, 50-80=0.5, 80-120=1, >120=2
+        let severity;
+        if (avgVotMs <= 50) severity = 0;
+        else if (avgVotMs <= 80) severity = 0.5;
+        else if (avgVotMs <= 120) severity = 1;
+        else severity = 2;
+        return { avgVotMs: Math.round(avgVotMs * 10) / 10, count: votMeasurements.length, severity: Math.round(severity * 10) / 10 };
+    },
+    
+    /**
+     * Analyze inter-word transition smoothness
+     */
+    analyzeTransitions(amplitudes, segments, frequencyHistory, secondsPerReading) {
+        if (!segments || segments.length < 2 || !secondsPerReading || secondsPerReading <= 0) return { smoothnessScore: null, transitionCount: 0, severity: null };
+        
+        const transitionScores = [];
+        for (let s = 0; s < segments.length - 1; s++) {
+            const A = segments[s];
+            const B = segments[s + 1];
+            const aLen = A.end - A.start + 1;
+            const bLen = B.end - B.start + 1;
+            const aDuration = aLen * secondsPerReading;
+            const bDuration = bLen * secondsPerReading;
+            const aWindow = Math.max(1, Math.floor(aLen * 0.2));
+            const bWindow = Math.max(1, Math.floor(bLen * 0.2));
+            const startIdx = Math.max(A.start, A.end - aWindow);
+            const endIdx = Math.min(B.end, B.start + bWindow);
+            if (startIdx >= endIdx) continue;
+            
+            const windowAmps = amplitudes.slice(startIdx, endIdx + 1);
+            const bridgeLen = endIdx - startIdx + 1;
+            const bridgeDuration = bridgeLen * secondsPerReading;
+            const ampVariance = Utils.standardDeviation(windowAmps);
+            const meanAmp = windowAmps.reduce((a,b)=>a+b,0) / windowAmps.length;
+            const rawSmoothness = meanAmp > 0 ? 1 / (1 + ampVariance / meanAmp) : 0;
+            const timeNorm = bridgeDuration / Math.max(0.1, (aDuration + bDuration) / 2);
+            const smoothness = Math.min(1, rawSmoothness * (1 + Math.min(1, timeNorm)));
+            transitionScores.push(smoothness);
+        }
+        // severity 0-2: 0=smooth, 2=wobbly
+        
+        if (transitionScores.length === 0) return { smoothnessScore: null, transitionCount: 0, severity: null };
+        const avgSmoothness = transitionScores.reduce((a,b)=>a+b,0) / transitionScores.length;
+        const severity = Utils.clamp(2 * (1 - Math.max(0, Math.min(1, avgSmoothness))), 0, 2);
+        return { smoothnessScore: Math.round(avgSmoothness * 10) / 10, transitionCount: transitionScores.length, severity: Math.round(severity * 10) / 10 };
+    },
+    
+    /**
+     * Analyze vocal fatigue via energy slope (linear regression).
+     * Negative slope = energy declining over time (fatigue); flat/rising = no fatigue.
+     * Trims trailing silence so slope reflects actual speech, not post-phrase silence.
+     */
+    analyzeFatigue(amplitudeData, segments, secondsPerReading) {
+        if (!amplitudeData || amplitudeData.length < 8) return { fatigueRatio: null, severity: null };
+        
+        const threshold = this.config.silenceThreshold;
+        let endIdx = amplitudeData.length - 1;
+        const maxTrim = Math.floor(amplitudeData.length * 0.2);
+        for (let i = amplitudeData.length - 1; i >= Math.max(0, amplitudeData.length - maxTrim); i--) {
+            if (amplitudeData[i].amplitude > threshold) {
+                endIdx = i;
+                break;
+            }
+            endIdx = i - 1;
+        }
+        const data = amplitudeData.slice(0, Math.max(8, endIdx + 1));
+        
+        const totalLen = data.length;
+        const windowSize = Math.max(2, Math.floor(totalLen * 0.2));
+        const step = Math.max(1, Math.floor(windowSize / 2));
+        
+        const windowEnergies = [];
+        for (let i = 0; i <= totalLen - windowSize; i += step) {
+            const window = data.slice(i, i + windowSize).map(d => d.amplitude);
+            const mean = window.reduce((a, b) => a + b, 0) / window.length;
+            windowEnergies.push(mean);
+        }
+        
+        if (windowEnergies.length < 3) return { fatigueRatio: null, severity: null };
+        
+        const n = windowEnergies.length;
+        const sumX = (n * (n - 1)) / 2;
+        const sumY = windowEnergies.reduce((a, b) => a + b, 0);
+        let sumXY = 0;
+        let sumX2 = 0;
+        for (let i = 0; i < n; i++) {
+            sumXY += i * windowEnergies[i];
+            sumX2 += i * i;
+        }
+        const denom = n * sumX2 - sumX * sumX;
+        const slope = Math.abs(denom) < 1e-12 ? 0 : (n * sumXY - sumX * sumY) / denom;
+        const meanEnergy = sumY / n;
+        const slopeNorm = meanEnergy > 1e-10 ? slope / meanEnergy : 0;
+        
+        let severity;
+        if (slopeNorm >= 0) {
+            severity = 0;
+            // Penalize breathy/weak onset: if first 25% of windows are much quieter than mean, add severity
+            const firstQuarter = Math.max(1, Math.floor(n * 0.25));
+            const firstMean = windowEnergies.slice(0, firstQuarter).reduce((a, b) => a + b, 0) / firstQuarter;
+            if (meanEnergy > 1e-10 && firstMean < 0.5 * meanEnergy) {
+                const weakStartPenalty = Math.max(0, 0.5 - firstMean / meanEnergy);
+                severity = Math.min(2, 0.5 + weakStartPenalty);
+            }
+        } else {
+            const scaleFactor = 80;
+            severity = Math.min(2, -slopeNorm * scaleFactor);
+        }
+        severity = Math.round(severity * 10) / 10;
+        const fatigueRatio = Utils.clamp(1 + slopeNorm * 20, 0, 1);
+        const result = { fatigueRatio: Math.round(fatigueRatio * 10) / 10, severity };
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c1b23'},body:JSON.stringify({sessionId:'4c1b23',location:'voice-logic.js:analyzeFatigue:exit',message:'Fatigue slope',data:{slope,slopeNorm,meanEnergy,...result},timestamp:Date.now(),hypothesisId:'fatigueFix'})}).catch(()=>{});
+        // #endregion
+        return result;
+    },
+    
+    /**
+     * Analyze vowel clarity via Harmonic-to-Noise Ratio (HNR).
+     * Low HNR = breathy/mumbled; high HNR = clear.
+     */
+    analyzeVowelHNR(rawAudio, sampleRate) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c1b23'},body:JSON.stringify({sessionId:'4c1b23',location:'voice-logic.js:analyzeVowelHNR:entry',message:'analyzeVowelHNR called',data:{rawAudioLen:rawAudio?.length,sampleRate},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+        // #endregion
+        if (!rawAudio || rawAudio.length < sampleRate * 0.05) return { hnrDb: null, severity: null };
+        
+        const winMs = 25;
+        const hopMs = 10;
+        const winSamples = Math.floor(sampleRate * winMs / 1000);
+        const hopSamples = Math.floor(sampleRate * hopMs / 1000);
+        const minLag = Math.floor(sampleRate / 400);
+        const maxLag = Math.floor(sampleRate / 80);
+        
+        const hnrs = [];
+        for (let i = 0; i <= rawAudio.length - winSamples; i += hopSamples) {
+            const window = new Float32Array(winSamples);
+            for (let j = 0; j < winSamples; j++) {
+                window[j] = rawAudio[i + j] * (0.5 * (1 - Math.cos(2 * Math.PI * j / (winSamples - 1))));
+            }
+            
+            let r0 = 0;
+            for (let j = 0; j < winSamples; j++) r0 += window[j] * window[j];
+            if (r0 < 1e-12) continue;
+            
+            let maxCorr = 0;
+            let bestLag = 0;
+            for (let lag = minLag; lag <= maxLag && lag < winSamples / 2; lag++) {
+                let sum = 0;
+                for (let j = 0; j < winSamples - lag; j++) sum += window[j] * window[j + lag];
+                const corr = sum / r0;
+                if (corr > maxCorr) { maxCorr = corr; bestLag = lag; }
+            }
+            
+            if (maxCorr < 0.2 || bestLag === 0) continue;
+            const noise = Math.max(1e-12, r0 - maxCorr * r0);
+            const harmonic = maxCorr * r0;
+            const hnrDb = 10 * Math.log10(harmonic / noise);
+            hnrs.push(hnrDb);
+        }
+        
+        if (hnrs.length < 3) return { hnrDb: null, severity: null };
+        
+        const avgHnr = hnrs.reduce((a, b) => a + b, 0) / hnrs.length;
+        // Calibrated for observed HNR range (-3 to +2 dB). HNR >= 1.5 = clearest, HNR <= -2.5 = worst.
+        let severity;
+        if (avgHnr >= 1.5) severity = 0;
+        else if (avgHnr >= 0) severity = 0.5;
+        else if (avgHnr >= -1.5) severity = 1;
+        else if (avgHnr >= -2.5) severity = 1.5;
+        else severity = 2;
+        severity = Math.round(severity * 10) / 10;
+        const result = { hnrDb: Math.round(avgHnr * 10) / 10, severity };
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c1b23'},body:JSON.stringify({sessionId:'4c1b23',location:'voice-logic.js:analyzeVowelHNR:exit',message:'analyzeVowelHNR success',data:result,timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+        // #endregion
+        return result;
+    },
+    
+    /**
+     * Analyze volume steadiness via local vs global variance.
+     * High ratio = jerky (concentrated fluctuation); low ratio = steady.
+     */
+    analyzeSteadiness(amplitudes, threshold) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c1b23'},body:JSON.stringify({sessionId:'4c1b23',location:'voice-logic.js:analyzeSteadiness:entry',message:'analyzeSteadiness called',data:{amplitudesLen:amplitudes?.length},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
+        if (!amplitudes || amplitudes.length < 2) return { localGlobalRatio: null, severity: null };
+        
+        const globalVar = Utils.standardDeviation(amplitudes);
+        const winSize = Math.max(2, Math.floor(amplitudes.length * 0.1));
+        const step = Math.max(1, Math.floor(winSize / 2));
+        const localVariances = [];
+        
+        for (let i = 0; i <= amplitudes.length - winSize; i += step) {
+            const win = amplitudes.slice(i, i + winSize);
+            localVariances.push(Utils.standardDeviation(win));
+        }
+        
+        if (localVariances.length < 2 || globalVar < 1e-10) return { localGlobalRatio: null, severity: null };
+        
+        const meanLocalVar = localVariances.reduce((a, b) => a + b, 0) / localVariances.length;
+        const ratio = meanLocalVar / Math.max(1e-10, globalVar);
+        const severity = Utils.clamp((ratio - 0.6) * 1.5, 0, 2);
+        const result = { localGlobalRatio: Math.round(ratio * 100) / 100, severity: Math.round(severity * 10) / 10 };
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c1b23'},body:JSON.stringify({sessionId:'4c1b23',location:'voice-logic.js:analyzeSteadiness:exit',message:'analyzeSteadiness success',data:result,timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
+        return result;
+    },
+    
+    /**
      * Calculate voice score (0-10)
      * Lower score = better voice control
      * @param {Object} metrics - Voice metrics
      * @returns {number} Score 0-10
      */
-    calculateScore(metrics) {
-        const { speakingDuration, pauseCount, speakingRate, wordCount, speechRecognitionAvailable } = metrics;
-        
-        // Ideal values for comparison
-        const idealDuration = 4; // seconds for the phrase
-        const idealRate = 135; // words per minute
+    calculateScore(params) {
+        const { wordCount, speechRecognitionAvailable, metrics: voiceMetrics, pauseCount = 0 } = params;
         
         let score = 0;
         
-        // Duration factor (0-3 points)
-        // Too fast or too slow is problematic
-        const durationRatio = speakingDuration / idealDuration;
-        if (durationRatio < 0.5 || durationRatio > 2) {
-            score += 3;
-        } else if (durationRatio < 0.7 || durationRatio > 1.5) {
-            score += 2;
-        } else if (durationRatio < 0.8 || durationRatio > 1.2) {
-            score += 1;
+        // Pause penalty (0-2 max): stutter/choppy speech = more pauses
+        if (pauseCount > 1) {
+            score += Math.min(2, (pauseCount - 1) * 0.7); // 2 pauses=0.7, 3=1.4, 4+=2
         }
         
-        // Pause factor (0-3 points)
-        // More pauses = higher score (worse)
-        if (pauseCount >= 4) {
-            score += 3;
-        } else if (pauseCount >= 2) {
-            score += 2;
-        } else if (pauseCount >= 1) {
-            score += 1;
-        }
-        
-        // Speaking rate factor (0-2 points)
-        // Only apply if speech recognition is available and we have words
-        if (speechRecognitionAvailable && wordCount > 0 && speakingRate > 0) {
-            // 150-210 WPM is ideal (0 points)
-            // 115-150 WPM is slightly slow (1 point)
-            // Below 115 or above 210 is problematic (2 points)
-            if (speakingRate < 115 || speakingRate > 210) {
-                score += 2;
-            } else if (speakingRate < 150) {
-                score += 1;
-            }
-            // 150-210 WPM adds 0 points
-        }
-        
-        // Word count penalty (0-2 points)
-        // Target phrase has 9 words - penalize for not completing it
+        // Word count (0-1 max): 9=0, 8=0.5, 7=1; 10=0.5, 11+=1; <7=max penalty
         const targetWordCount = 9; // "The quick brown fox jumps over the lazy dog"
-        if (speechRecognitionAvailable && wordCount < targetWordCount) {
-            const missingWords = targetWordCount - wordCount;
-            if (missingWords >= 4) {
-                score += 2; // Missed 4+ words
-            } else if (missingWords >= 1) {
-                score += 1; // Missed 1-3 words
+        if (speechRecognitionAvailable && wordCount > 0) {
+            if (wordCount === 9) {
+                score += 0;
+            } else if (wordCount === 8 || wordCount === 10) {
+                score += 0.5;
+            } else if (wordCount === 7 || wordCount >= 11) {
+                score += 1;
+            } else {
+                score += 1;  // Below retake threshold - max penalty
             }
+        }
+        
+        // 5 metrics: VOT, transitions, fatigue, vowels = 0-2 each; steadiness = 0-1 (severity/2)
+        // Uncalculable metrics get max severity (2) as conservative penalty
+        const severityOrMax = (s) => (s != null && !isNaN(s)) ? s : 2;
+        if (voiceMetrics) {
+            score += severityOrMax(voiceMetrics.vot?.severity);
+            score += severityOrMax(voiceMetrics.transitions?.severity);
+            score += severityOrMax(voiceMetrics.fatigue?.severity);
+            score += severityOrMax(voiceMetrics.vowels?.severity);
+            score += severityOrMax(voiceMetrics.steadiness?.severity) / 2;  // steadiness contributes 0-1
         }
         
         // Clamp to 0-10
@@ -707,6 +1088,13 @@ const VoiceLogic = {
      * Cleanup recording resources
      */
     cleanupRecording() {
+        if (this.state.frequencyPollId) {
+            clearInterval(this.state.frequencyPollId);
+            this.state.frequencyPollId = null;
+        }
+        this.state.frequencyHistory = [];
+        this.state.frequencyDataArray = null;
+        
         if (this.state.audioWorkletNode) {
             this.state.audioWorkletNode.disconnect();
             this.state.audioWorkletNode = null;
@@ -781,6 +1169,7 @@ const VoiceLogic = {
         this.cleanupRecording();
         this.state.audioBuffer = [];
         this.state.amplitudeData = [];
+        this.state.frequencyHistory = [];
         this.state.startTime = null;
         this.state.recognizedText = '';
         this.state.wordCount = 0;

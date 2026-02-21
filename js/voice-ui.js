@@ -44,6 +44,7 @@ const VoiceUI = {
             wordCount: document.getElementById('voice-word-count'),
             playbackBtn: document.getElementById('voice-playback'),
             saveBtn: document.getElementById('voice-save'),
+            retakeBtn: document.getElementById('voice-retake'),
             insight: document.getElementById('voice-insight'),
             insightText: document.getElementById('voice-insight-text'),
             // New transcript elements
@@ -55,7 +56,13 @@ const VoiceUI = {
             // Soundwave elements
             soundwaveContainer: document.getElementById('voice-soundwave-container'),
             soundwave: document.getElementById('voice-soundwave'),
-            soundwaveDuration: document.getElementById('voice-soundwave-duration')
+            // Detailed metrics
+            detailedMetrics: document.getElementById('voice-detailed-metrics'),
+            votEl: document.getElementById('voice-vot'),
+            transitionsEl: document.getElementById('voice-transitions'),
+            fatigueEl: document.getElementById('voice-fatigue'),
+            vowelsEl: document.getElementById('voice-vowels'),
+            steadinessEl: document.getElementById('voice-steadiness')
         };
         
         // Setup event listeners
@@ -81,6 +88,7 @@ const VoiceUI = {
         this.elements.stopBtn.addEventListener('click', () => this.stopTest());
         this.elements.playbackBtn.addEventListener('click', () => this.playRecording());
         this.elements.saveBtn.addEventListener('click', () => this.saveResults());
+        if (this.elements.retakeBtn) this.elements.retakeBtn.addEventListener('click', () => this.retakeTest());
     },
     
     /**
@@ -189,11 +197,6 @@ const VoiceUI = {
         ctx.lineTo(width, height / 2);
         ctx.stroke();
         
-        // Update duration display
-        if (this.state.recordingStartTime && this.elements.soundwaveDuration) {
-            const elapsed = (Date.now() - this.state.recordingStartTime) / 1000;
-            this.elements.soundwaveDuration.textContent = `${elapsed.toFixed(1)}s`;
-        }
     },
     
     /**
@@ -351,9 +354,6 @@ const VoiceUI = {
         }
         this.state.amplitudeHistory = [];
         this.state.recordingStartTime = Date.now();
-        if (this.elements.soundwaveDuration) {
-            this.elements.soundwaveDuration.textContent = '0.0s';
-        }
         
         // Set test running state
         App.setTestRunning(true);
@@ -526,14 +526,51 @@ const VoiceUI = {
         this.state.testResults = results;
         this.state.audioData = results.audioData;
         
-        // Check if speech was recorded properly (at least 50% of expected words detected)
-        const expectedWordCount = 9; // "The quick brown fox jumps over the lazy dog"
+        // Check if enough words were detected and content matches expected phrase
+        const expectedPhrase = "The quick brown fox jumps over the lazy dog";
+        const expectedWordCount = 9;
+        const minWordsRequired = 7;
+        const minExpectedWordsMatch = 5; // Need at least 5 of 8 unique expected words
         const wordCount = results.wordCount || 0;
-        if (results.speechRecognitionSupported && wordCount < expectedWordCount * 0.5) {
+        const recognizedText = (results.recognizedText || '').trim();
+
+        let shouldRetake = false;
+        let retakeMessage = '';
+
+        if (results.speechRecognitionSupported) {
+            if (wordCount < minWordsRequired) {
+                shouldRetake = true;
+                retakeMessage = `Fewer than ${minWordsRequired} of the ${expectedWordCount} expected words were detected (you said ${wordCount}). Speech may not have been recorded clearly (e.g. quiet environment, unclear speech, or background noise). Would you like to retake the test?`;
+            } else {
+                // Content validation: check if transcript matches expected phrase
+                const expectedWords = [...new Set(expectedPhrase.toLowerCase().split(/\s+/))];
+                const transcriptWords = recognizedText.toLowerCase().split(/\s+/).filter(Boolean);
+                const matchedCount = expectedWords.filter(ew => transcriptWords.includes(ew)).length;
+                if (matchedCount < minExpectedWordsMatch) {
+                    shouldRetake = true;
+                    retakeMessage = `Your words didn't match the expected phrase. Please read: "${expectedPhrase}". Would you like to retake the test?`;
+                }
+            }
+        }
+
+        // Check if 2+ voice metrics couldn't be calculated
+        if (!shouldRetake) {
+            if (!results.metrics) {
+                shouldRetake = true;
+                retakeMessage = 'Insufficient recording data. Would you like to retake the test?';
+            } else {
+                const metricKeys = ['vot', 'transitions', 'fatigue', 'vowels', 'steadiness'];
+                const uncalculableCount = metricKeys.filter(m => results.metrics[m]?.severity == null).length;
+                if (uncalculableCount >= 2) {
+                    shouldRetake = true;
+                    retakeMessage = `${uncalculableCount} of 5 voice metrics couldn't be calculated (e.g. too little speech, unclear audio). Would you like to retake the test?`;
+                }
+            }
+        }
+
+        if (shouldRetake) {
             App.setTestRunning(false);
-            const retake = confirm(
-                'Less than 50% of the expected words were detected. Speech may not have been recorded properly (e.g. quiet environment, unclear speech). Would you like to retake the test?'
-            );
+            const retake = confirm(retakeMessage);
             if (retake) {
                 this.resetUI();
                 this.elements.startBtn.classList.remove('hidden');
@@ -560,21 +597,26 @@ const VoiceUI = {
             this.elements.waveformContainer.classList.add('hidden');
         }
         
-        // Update soundwave duration and draw full recording waveform
-        if (this.elements.soundwaveDuration) {
-            const totalDuration = (Date.now() - this.state.recordingStartTime) / 1000;
-            this.elements.soundwaveDuration.textContent = `${totalDuration.toFixed(1)}s`;
-        }
-        
         // Draw the full recording waveform (compressed view)
         this.drawFullRecordingWaveform();
+        
+        // #region agent log
+        this.state.runCount = (this.state.runCount || 0) + 1;
+        const runNum = this.state.runCount;
+        const runPhase = runNum <= 10 ? 'normal' : 'old_man';
+        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c1b23'},body:JSON.stringify({sessionId:'4c1b23',location:'voice-ui.js:stopTest:scoreBreakdown',message:'Voice test run logged',data:{run:runNum,phase:runPhase,score:results.score,vot:results.metrics?.vot?.severity,votMs:results.metrics?.vot?.avgVotMs,transitions:results.metrics?.transitions?.severity,fatigue:results.metrics?.fatigue?.severity,fatigueRatio:results.metrics?.fatigue?.fatigueRatio,vowels:results.metrics?.vowels?.severity,vowelsHnr:results.metrics?.vowels?.hnrDb,steadiness:results.metrics?.steadiness?.severity,wordCount:results.wordCount,duration:results.details?.totalDuration??results.duration,pauses:results.pauses,speakingRate:results.speakingRate},timestamp:Date.now(),hypothesisId:'runLog'})}).catch(()=>{});
+        // #endregion
         
         // Display results
         if (this.elements.score) {
         this.elements.score.textContent = results.score.toFixed(1);
         }
         if (this.elements.duration) {
-        this.elements.duration.textContent = `${results.duration}s`;
+            const totalDuration = results.details?.totalDuration ?? (Date.now() - this.state.recordingStartTime) / 1000;
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c1b23'},body:JSON.stringify({sessionId:'4c1b23',location:'voice-ui.js:stopTest:duration',message:'Duration display',data:{totalDuration,detailsTotal:results.details?.totalDuration,recordingFallback:(Date.now()-this.state.recordingStartTime)/1000},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+            // #endregion
+            this.elements.duration.textContent = `${Math.round(totalDuration * 10) / 10}s`;
         }
         if (this.elements.pauses) {
         this.elements.pauses.textContent = results.pauses;
@@ -604,7 +646,49 @@ const VoiceUI = {
         this.elements.score.className = `text-3xl font-bold ${this.getScoreColorClass(results.score)}`;
         }
         
+        // Display detailed metrics
+        this.displayDetailedMetrics(results.metrics || {});
+        
         Utils.showToast('Test complete!', 'success');
+    },
+    
+    /**
+     * Display the five speech metrics in the detailed metrics section
+     * @param {Object} metrics - Metrics from voice analysis
+     */
+    displayDetailedMetrics(metrics) {
+        const fmt = (el, text) => { if (el) el.textContent = text; };
+        const m = metrics;
+        
+        const sev = (s) => (s != null && !isNaN(s)) ? s.toFixed(1) : '-';
+        if (m.vot) {
+            const vot = m.vot;
+            const txt = vot.severity != null ? `Voice onset: ${sev(vot.severity)}${vot.avgVotMs != null ? ` (${vot.avgVotMs}ms)` : ''}` : 'Voice onset: -';
+            fmt(this.elements.votEl, txt);
+        } else { fmt(this.elements.votEl, 'Voice onset: -'); }
+        
+        if (m.transitions) {
+            const t = m.transitions;
+            fmt(this.elements.transitionsEl, t.severity != null ? `Transitions: ${sev(t.severity)}` : 'Transitions: -');
+        } else { fmt(this.elements.transitionsEl, 'Transitions: -'); }
+        
+        if (m.fatigue) {
+            const f = m.fatigue;
+            const txt = f.severity != null ? `Fatigue: ${sev(f.severity)}${f.fatigueRatio != null ? ` (${(f.fatigueRatio * 100).toFixed(1)}% energy kept)` : ''}` : 'Fatigue: -';
+            fmt(this.elements.fatigueEl, txt);
+        } else { fmt(this.elements.fatigueEl, 'Fatigue: -'); }
+        
+        if (m.vowels) {
+            const v = m.vowels;
+            const txt = v.severity != null ? `Vowel clarity: ${sev(v.severity)}${v.hnrDb != null ? ` (${v.hnrDb} dB HNR)` : ''}` : 'Vowel clarity: -';
+            fmt(this.elements.vowelsEl, txt);
+        } else { fmt(this.elements.vowelsEl, 'Vowel clarity: -'); }
+        
+        if (m.steadiness) {
+            fmt(this.elements.steadinessEl, m.steadiness.severity != null ? `Volume steadiness: ${sev(m.steadiness.severity)}` : 'Volume steadiness: -');
+        } else { fmt(this.elements.steadinessEl, 'Volume steadiness: -'); }
+        
+        if (this.elements.detailedMetrics) this.elements.detailedMetrics.classList.remove('hidden');
     },
     
     /**
@@ -651,12 +735,17 @@ const VoiceUI = {
             return;
         }
         
+        const totalDuration = this.state.testResults.details?.totalDuration ?? this.state.testResults.duration;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c1b23'},body:JSON.stringify({sessionId:'4c1b23',location:'voice-ui.js:saveResults:duration',message:'Save voice_duration',data:{totalDuration,detailsTotal:this.state.testResults.details?.totalDuration,fallbackDuration:this.state.testResults.duration},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+        // #endregion
         const entry = Storage.saveEntry({
             voice_score: this.state.testResults.score,
-            voice_duration: this.state.testResults.duration,
+            voice_duration: totalDuration,
             voice_pauses: this.state.testResults.pauses,
             voice_speaking_rate: this.state.testResults.speakingRate,
-            voice_word_count: this.state.testResults.wordCount
+            voice_word_count: this.state.testResults.wordCount,
+            voice_metrics: this.state.testResults.metrics || null
         });
         
         if (entry) {
@@ -683,7 +772,8 @@ const VoiceUI = {
             const insight = await API.getDailyInsight(
                 'voice',
                 entry.tremor_score,
-                entry.voice_score
+                entry.voice_score,
+                entry.voice_metrics
             );
             
             this.elements.insightText.textContent = insight;
@@ -702,6 +792,17 @@ const VoiceUI = {
             
             this.elements.insightText.textContent = insight;
         }
+    },
+    
+    /**
+     * Retake the voice test (reset and start again)
+     */
+    retakeTest() {
+        this.resetUI();
+        this.elements.startBtn.classList.remove('hidden');
+        this.elements.stopBtn.classList.add('hidden');
+        this.elements.results.classList.add('hidden');
+        setTimeout(() => this.startTest(), 300);
     },
     
     /**

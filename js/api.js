@@ -289,14 +289,32 @@ FORMATTING: Use **double asterisks** for key terms (e.g. **Average tremor**, **O
      * @param {'tremor'|'voice'} type - Which test was completed
      * @param {number|null} tremorScore - Tremor score (0-10), for tremor insights
      * @param {number|null} voiceScore - Voice score (0-10), for voice insights
+     * @param {Object|null} voiceMetrics - Full voice metrics for Manus to interpret (vot, transitions, fatigue, vowels, steadiness)
      * @returns {Promise<string>} Insight text
      */
-    async getDailyInsight(type, tremorScore, voiceScore) {
+    async getDailyInsight(type, tremorScore, voiceScore, voiceMetrics = null) {
         let prompt;
         if (type === 'tremor') {
             prompt = `Based on today's Parkinson's tremor test: score ${tremorScore ?? 'N/A'}/10 (0-2 minimal, 3-5 moderate, 6-10 severe). Write exactly 2 sentences: (1) a brief summary of how the tremor levels look today, (2) one practical tip or encouragement for tremor management. Be warm and supportive. Output ONLY the 2 sentences, nothing else.`;
         } else {
-            prompt = `Based on today's Parkinson's voice test: score ${voiceScore ?? 'N/A'}/10 (0-2 minimal, 3-5 moderate, 6-10 severe). Write exactly 2 sentences: (1) a brief summary of how the voice/speech looks today, (2) one practical tip or encouragement for voice/speech. Be warm and supportive. Output ONLY the 2 sentences, nothing else.`;
+            if (voiceMetrics && (voiceMetrics.vot || voiceMetrics.transitions || voiceMetrics.fatigue || voiceMetrics.vowels || voiceMetrics.steadiness)) {
+                const m = voiceMetrics;
+                const sev = (s) => (s != null && !isNaN(s)) ? s.toFixed(1) : '-';
+                const votStr = m.vot ? `- Voice onset: ${sev(m.vot.severity)}${m.vot.avgVotMs != null ? ` (${m.vot.avgVotMs}ms)` : ''}` : '';
+                const transStr = m.transitions ? `- Word transitions: ${sev(m.transitions.severity)}` : '';
+                const fatigueStr = m.fatigue ? `- Vocal fatigue: ${sev(m.fatigue.severity)}${m.fatigue.fatigueRatio != null ? ` (energy ratio: ${m.fatigue.fatigueRatio})` : ''}` : '';
+                const vowelStr = m.vowels ? `- Vowel clarity: ${sev(m.vowels.severity)}${m.vowels.hnrDb != null ? ` (${m.vowels.hnrDb} dB HNR)` : ''}` : '';
+                const steadyStr = m.steadiness ? `- Volume steadiness: ${sev(m.steadiness.severity)}` : '';
+                const metricsBlock = [votStr, transStr, fatigueStr, vowelStr, steadyStr].filter(Boolean).join('\n');
+                prompt = `Based on today's Parkinson's voice test:
+- Overall score: ${voiceScore ?? 'N/A'}/10 (0-2 minimal, 3-5 moderate, 6-10 severe)
+- Per-metric severity 0-2 (0=perfect, 2=bad):
+${metricsBlock}
+
+Write exactly 2 sentences: (1) a brief summary interpreting these voice metrics for a Parkinson's patient, (2) one practical tip. Be warm and supportive. Output ONLY the 2 sentences, nothing else.`;
+            } else {
+                prompt = `Based on today's Parkinson's voice test: score ${voiceScore ?? 'N/A'}/10 (0-2 minimal, 3-5 moderate, 6-10 severe). Write exactly 2 sentences: (1) a brief summary of how the voice/speech looks today, (2) one practical tip or encouragement for voice/speech. Be warm and supportive. Output ONLY the 2 sentences, nothing else.`;
+            }
         }
         
         try {
