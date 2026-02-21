@@ -32,8 +32,10 @@ app = FastAPI(title="ParkinPal Voice Analysis")
 async def load_whisper_at_startup():
     """Pre-load Whisper at startup. faster-whisper tiny+int8 fits in 512MB (Render free tier limit)."""
     global _whisper_model
+    print("[ParkinPal] Startup: loading Whisper model...", flush=True)
     from faster_whisper import WhisperModel
     _whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
+    print("[ParkinPal] Startup: Whisper loaded, ready to serve", flush=True)
 
 
 app.add_middleware(
@@ -361,6 +363,7 @@ def compute_score(metrics: dict, duration: float) -> float:
 
 @app.post("/analyze")
 def analyze(request: AnalyzeRequest):
+    print("[ParkinPal] /analyze: request received", flush=True)
     audio_path = None
     try:
         audio_path = decode_audio(request.audio)
@@ -401,14 +404,22 @@ def analyze(request: AnalyzeRequest):
         }
         if suggest_retake:
             result["suggestRetake"] = True
+        print("[ParkinPal] /analyze: success, returning result", flush=True)
         return result
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[ParkinPal] /analyze: error - {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if audio_path and audio_path.exists():
             audio_path.unlink(missing_ok=True)
+
+
+@app.get("/")
+def root():
+    """Root route for Render health checks (GET / returns 200)."""
+    return {"status": "ok", "service": "parkinpal-voice"}
 
 
 @app.get("/health")
