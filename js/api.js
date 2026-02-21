@@ -99,21 +99,46 @@ const API = {
         // Trend
         const trend = stats.trend || 'stable';
         
-        // Format daily measurements
+        // Format daily measurements (score and duration only for user-facing summary; full metrics in section below)
         const dailyData = entries.map((e, i) => {
             const date = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             const dayOfWeek = new Date(e.date).toLocaleDateString('en-US', { weekday: 'short' });
             const tremor = e.tremor_score != null ? `${e.tremor_score}/10` : 'N/A';
             const voice = e.voice_score != null ? `${e.voice_score}/10` : 'N/A';
+            const voiceDuration = e.voice_duration != null ? `, ${e.voice_duration}s` : '';
             const severity = e.tremor_severity ? ` (${e.tremor_severity})` : '';
             const notes = e.notes ? ` - "${e.notes}"` : '';
-            return `${dayOfWeek} ${date}: Tremor ${tremor}${severity}, Voice ${voice}${notes}`;
+            return `${dayOfWeek} ${date}: Tremor ${tremor}${severity}, Voice ${voice}${voiceDuration}${notes}`;
         }).join('\n');
-        
+
+        // Voice acoustic metrics (for clinical context; not shown to patient)
+        const voiceMetricsEntries = entries
+            .filter(e => e.voice_score != null && (e.voice_vot || e.voice_transition_stability != null || e.voice_prosodic_decay || e.voice_vowel_space || e.voice_amplitude_jitter != null))
+            .map(e => {
+                const parts = [];
+                if (e.voice_vot && Object.keys(e.voice_vot).length) {
+                    parts.push(`VOT(ms): ${JSON.stringify(e.voice_vot)}`);
+                }
+                if (e.voice_transition_stability != null) parts.push(`Transition: ${(e.voice_transition_stability * 100).toFixed(1)}%`);
+                if (e.voice_prosodic_decay) {
+                    const d = e.voice_prosodic_decay;
+                    if (d.amplitudeDecay > 0 || d.rateDecay > 0) parts.push(`Prosodic decay: amp ${(d.amplitudeDecay * 100).toFixed(1)}%, rate ${(d.rateDecay * 100).toFixed(1)}%`);
+                }
+                if (e.voice_amplitude_jitter != null) parts.push(`Jitter: ${(e.voice_amplitude_jitter * 100).toFixed(2)}%`);
+                if (e.voice_vowel_space && Object.keys(e.voice_vowel_space).length) {
+                    parts.push(`Formants: ${JSON.stringify(e.voice_vowel_space)}`);
+                }
+                const dateStr = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return parts.length ? `${dateStr}: ${parts.join('; ')}` : null;
+            })
+            .filter(Boolean);
+        const voiceMetricsBlock = voiceMetricsEntries.length ? `\nVOICE ACOUSTIC METRICS (Parselmouth/Whisper):\n${voiceMetricsEntries.join('\n')}` : '';
+
         return `PATIENT DATA:
 
 DAILY MEASUREMENTS (7 days):
 ${dailyData || 'No data recorded.'}
+${voiceMetricsBlock}
 
 STATISTICS:
 - Tremor: Avg ${avgTremor}/10, Range ${minTremor}-${maxTremor}, StdDev ${stdDevTremor}
@@ -129,6 +154,8 @@ Your task is to write a clinical summary of the patient's symptoms. You write ON
 2) If there are any notable outlier days (tremor or voice scores significantly above/below the average), explicitly mention them with dates. If there are not any outliers, mention that as well.
 
 3) If voice and tremor significantly differ from each other (e.g., one is much higher/lower than the other, or correlation is ${correlation}), mention that as well.
+
+4) If VOICE ACOUSTIC METRICS are provided above (VOT, prosodic decay, transition stability, jitter, formants), incorporate clinically relevant observations (e.g., prolonged VOT, high prosodic decay, vowel centralization) when they support the summary. Be concise.
 
 Each of the points has to be its own explicit paragraph separated by a line.
 

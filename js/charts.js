@@ -276,6 +276,12 @@ const Charts = {
                 date: e.date.split('T')[0],
                 tremor_score: e.tremor_score,
                 voice_score: e.voice_score,
+                voice_duration: e.voice_duration,
+                voice_vot: e.voice_vot,
+                voice_transition_stability: e.voice_transition_stability,
+                voice_prosodic_decay: e.voice_prosodic_decay,
+                voice_vowel_space: e.voice_vowel_space,
+                voice_amplitude_jitter: e.voice_amplitude_jitter,
                 tremor_severity: e.tremor_severity
             })),
             stats: {

@@ -489,39 +489,8 @@ const VoiceUI = {
             this.elements.duration.textContent = `${duration}s`;
         }
 
-        if (this.elements.metricsDetails && analysis.metrics) {
-            const m = analysis.metrics;
-            const lines = [];
-
-            if (m.vot && Object.keys(m.vot).length > 0) {
-                const votStr = Object.entries(m.vot)
-                    .map(([w, ms]) => `${w}: ${ms}ms`)
-                    .join(', ');
-                lines.push(`VOT: ${votStr}`);
-            }
-            if (m.transitionStability != null) {
-                lines.push(`Transition stability: ${(m.transitionStability * 100).toFixed(1)}%`);
-            }
-            if (m.prosodicDecay) {
-                const d = m.prosodicDecay;
-                if (d.amplitudeDecay > 0 || d.rateDecay > 0) {
-                    lines.push(`Prosodic decay: amp ${(d.amplitudeDecay * 100).toFixed(1)}%, rate ${(d.rateDecay * 100).toFixed(1)}%`);
-                }
-            }
-            if (m.amplitudeJitter != null) {
-                lines.push(`Amplitude jitter: ${(m.amplitudeJitter * 100).toFixed(2)}%`);
-            }
-            if (m.vowelSpace && Object.keys(m.vowelSpace).length > 0) {
-                const vs = Object.entries(m.vowelSpace)
-                    .map(([k, v]) => `${k}: ${v}Hz`)
-                    .join(', ');
-                lines.push(`Vowel formants: ${vs}`);
-            }
-
-            this.elements.metricsDetails.innerHTML = lines
-                .map((line) => `<div>${line}</div>`)
-                .join('');
-            this.elements.metricsDetails.classList.remove('hidden');
+        if (this.elements.metricsDetails) {
+            this.elements.metricsDetails.classList.add('hidden');
         }
     },
 
