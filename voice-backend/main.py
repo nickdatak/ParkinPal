@@ -367,13 +367,16 @@ def analyze(request: AnalyzeRequest):
     audio_path = None
     try:
         audio_path = decode_audio(request.audio)
+        print("[ParkinPal] /analyze: decoded audio", flush=True)
         sound = parselmouth.Sound(str(audio_path))
         duration = sound.duration
+        print("[ParkinPal] /analyze: parsed sound", flush=True)
 
         if duration < 1.0:
             raise HTTPException(status_code=400, detail="Recording too short (min 1 second)")
 
         model = get_whisper_model()
+        print("[ParkinPal] /analyze: starting Whisper transcribe", flush=True)
         segments, _ = model.transcribe(
             str(audio_path),
             word_timestamps=True,
@@ -381,10 +384,12 @@ def analyze(request: AnalyzeRequest):
         )
         segments = list(segments)
         words = words_from_faster_whisper(segments, duration)
+        print("[ParkinPal] /analyze: Whisper done", flush=True)
 
         phrase_match = compute_phrase_match(words, TARGET_PHRASE_WORDS)
         suggest_retake = phrase_match["phraseMatchPercent"] < PHRASE_MATCH_THRESHOLD_PERCENT
 
+        print("[ParkinPal] /analyze: starting Parselmouth metrics", flush=True)
         metrics = {
             "vot": analyze_vot(sound, words),
             "transitionStability": analyze_transition_stability(sound, words),
@@ -392,6 +397,7 @@ def analyze(request: AnalyzeRequest):
             "vowelSpace": analyze_vowel_space(sound, words),
             "amplitudeJitter": analyze_amplitude_jitter(sound),
         }
+        print("[ParkinPal] /analyze: Parselmouth done", flush=True)
 
         score = compute_score(metrics, duration)
 
