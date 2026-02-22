@@ -3,10 +3,6 @@
  * Uses Web Audio API (AudioWorklet) and Web Speech API to analyze voice characteristics
  */
 
-// #region agent log
-fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:TOP',message:'voice-logic.js file loaded',data:{timestamp:new Date().toISOString()},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'LOAD'})}).catch(()=>{});
-// #endregion
-
 const VoiceLogic = {
     // Configuration
     config: {
@@ -109,10 +105,6 @@ const VoiceLogic = {
     initSpeechRecognition() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:initSpeechRecognition',message:'Checking Speech API support',data:{hasSpeechRecognition:!!SpeechRecognition,hasWindow:!!window.SpeechRecognition,hasWebkit:!!window.webkitSpeechRecognition},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-        
         if (!SpeechRecognition) {
             console.warn('Web Speech API not supported in this browser');
             this.state.speechRecognitionSupported = false;
@@ -126,10 +118,6 @@ const VoiceLogic = {
         this.state.speechRecognition.lang = 'en-US';
         
         this.state.speechRecognition.onresult = (event) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:onresult',message:'Speech result received',data:{resultsLength:event.results.length,hasCallback:!!this.state.onTranscriptUpdate},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
-            
             let transcript = '';
             let finalTranscript = '';
             
@@ -150,31 +138,18 @@ const VoiceLogic = {
                 .split(/\s+/)
                 .filter(word => word.length > 0).length;
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:onresult',message:'Transcript extracted',data:{finalTranscript,interimTranscript:transcript,combinedText:this.state.recognizedText,wordCount:this.state.wordCount},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
-            
             // Callback for UI update
             if (this.state.onTranscriptUpdate) {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:onresult',message:'Calling UI callback',data:{text:this.state.recognizedText,wordCount:this.state.wordCount},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-                // #endregion
                 this.state.onTranscriptUpdate(this.state.recognizedText, this.state.wordCount);
             }
         };
         
         this.state.speechRecognition.onerror = (event) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:onerror',message:'Speech recognition error',data:{error:event.error,errorMessage:event.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
             console.warn('Speech recognition error:', event.error);
             // Don't stop recording on speech errors - audio recording should continue
         };
         
         this.state.speechRecognition.onend = () => {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:onend',message:'Speech recognition ended',data:{isRecording:this.state.isRecording,hasSpeechRecognition:!!this.state.speechRecognition},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
             // Restart if still recording (speech recognition can stop unexpectedly)
             if (this.state.isRecording && this.state.speechRecognition) {
                 try {
@@ -195,9 +170,6 @@ const VoiceLogic = {
      * @returns {Promise<boolean>}
      */
     async startRecording(onAmplitude, onTranscriptUpdate) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'startRecording() called',data:{hasAmplitudeCallback:!!onAmplitude,hasTranscriptCallback:!!onTranscriptUpdate},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'ENTRY'})}).catch(()=>{});
-        // #endregion
         try {
             // Store transcript callback
             this.state.onTranscriptUpdate = onTranscriptUpdate;
@@ -240,32 +212,18 @@ const VoiceLogic = {
             this.state.isRecording = true;
             this.state.startTime = Date.now();
             
-            // #region agent log
-            const workletSupported = this.isAudioWorkletSupported();
-            fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'About to setup audio processing',data:{audioWorkletSupported:workletSupported},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'AUDIO'})}).catch(()=>{});
-            // #endregion
-            
             // Try to use AudioWorklet, fall back to ScriptProcessor
             if (this.isAudioWorkletSupported()) {
                 try {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'Attempting AudioWorklet setup',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'WORKLET'})}).catch(()=>{});
-                    // #endregion
                     await this.setupAudioWorklet(source, onAmplitude);
                     this.state.useAudioWorklet = true;
                     console.log('Using AudioWorklet for audio processing');
                 } catch (workletError) {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'AudioWorklet FAILED - falling back',data:{error:workletError.message,errorName:workletError.name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'WORKLET'})}).catch(()=>{});
-                    // #endregion
                     console.warn('AudioWorklet failed, falling back to ScriptProcessor:', workletError);
                     this.setupScriptProcessor(source, onAmplitude);
                     this.state.useAudioWorklet = false;
                 }
             } else {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'Using ScriptProcessor (no AudioWorklet)',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'SCRIPT'})}).catch(()=>{});
-                // #endregion
                 this.setupScriptProcessor(source, onAmplitude);
                 this.state.useAudioWorklet = false;
                 console.log('Using ScriptProcessor (AudioWorklet not supported)');
@@ -278,23 +236,14 @@ const VoiceLogic = {
             if (this.initSpeechRecognition()) {
                 try {
                     this.state.speechRecognition.start();
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'Speech recognition start() called successfully',data:{hasCallback:!!this.state.onTranscriptUpdate},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-                    // #endregion
                     console.log('Speech recognition started');
                 } catch (e) {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'Speech recognition start() FAILED',data:{error:e.message,errorName:e.name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-                    // #endregion
                     console.warn('Could not start speech recognition:', e);
                 }
             }
             
             return true;
         } catch (error) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:startRecording',message:'FATAL ERROR in startRecording',data:{error:error.message,errorName:error.name,stack:error.stack},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'FATAL'})}).catch(()=>{});
-            // #endregion
             console.error('Error starting recording:', error);
             this.cleanup();
             return false;
@@ -307,9 +256,6 @@ const VoiceLogic = {
      * @param {Function} onAmplitude
      */
     async setupAudioWorklet(source, onAmplitude) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:setupAudioWorklet',message:'Loading worklet module',data:{path:'js/audio-processor.worklet.js'},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'WORKLET_LOAD'})}).catch(()=>{});
-        // #endregion
         // Load the worklet module
         await this.state.audioContext.audioWorklet.addModule('js/audio-processor.worklet.js');
         
@@ -393,9 +339,6 @@ const VoiceLogic = {
      * @returns {Object} Analysis results
      */
     stopRecording() {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:stopRecording:entry',message:'stopRecording called',data:{wasRecording:this.state.isRecording,amplitudeDataLen:this.state.amplitudeData.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'STOP_A'})}).catch(()=>{});
-        // #endregion
         this.state.isRecording = false;
         
         // Stop speech recognition
@@ -411,7 +354,7 @@ const VoiceLogic = {
         const audioData = this.combineAudioBuffers();
         
         // Analyze recorded data
-        const analysis = this.analyzeAudio();
+        const analysis = this.analyzeAudio(audioData);
         
         // Store audio for playback
         analysis.audioData = audioData;
@@ -449,9 +392,10 @@ const VoiceLogic = {
     
     /**
      * Analyze recorded audio
+     * @param {Float32Array} audioData - Combined audio buffer from combineAudioBuffers()
      * @returns {Object} Analysis results
      */
-    analyzeAudio() {
+    analyzeAudio(audioData) {
         if (this.state.amplitudeData.length < 10) {
             return {
                 score: 0,
@@ -471,12 +415,6 @@ const VoiceLogic = {
         // Extract amplitude values
         const amplitudes = this.state.amplitudeData.map(d => d.amplitude);
         
-        // #region agent log
-        const minAmp = Math.min(...amplitudes);
-        const maxAmp = Math.max(...amplitudes);
-        const avgAmp = amplitudes.reduce((a,b)=>a+b,0)/amplitudes.length;
-        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:analyzeAudio:amps',message:'Amplitude stats',data:{count:amplitudes.length,min:minAmp.toFixed(5),max:maxAmp.toFixed(5),avg:avgAmp.toFixed(5),threshold:this.config.silenceThreshold},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'SPEAK_D'})}).catch(()=>{});
-        // #endregion
         // Detect speaking segments and pauses
         const { speakingDuration, pauseCount, segments } = this.detectSpeechSegments(amplitudes);
         
@@ -493,7 +431,6 @@ const VoiceLogic = {
             : 0;
         
         // Pitch analysis from raw audio
-        const audioData = this.combineAudioBuffers();
         const sampleRate = this.state.audioContext?.sampleRate ?? this.config.sampleRate;
         const pitch = audioData.length >= Math.round(0.03 * sampleRate)
             ? this.analyzePitch(audioData, sampleRate)
@@ -501,7 +438,9 @@ const VoiceLogic = {
         const hnr = pitch.f0Contour.length > 0
             ? this.analyzeHNR(audioData, sampleRate, pitch.f0Contour)
             : { meanHNR: 0, hnrValues: [] };
-        const shimmer = this.analyzeShimmer(this.state.amplitudeData);
+        const shimmer = pitch.f0Contour.length > 0
+            ? this.analyzeShimmer(audioData, sampleRate, pitch.f0Contour)
+            : { shimmer: 0, shimmerDb: 0 };
         const prosodicDecay = this.analyzeProsodicDecay(this.state.amplitudeData);
         const spectral = audioData.length >= Math.round(0.03 * sampleRate)
             ? this.analyzeSpectralFeatures(audioData, sampleRate)
@@ -596,28 +535,52 @@ const VoiceLogic = {
     },
 
     /**
-     * Compute shimmer from amplitude envelope (voiced/speaking frames only).
-     * Shimmer = mean(|A[i+1]-A[i]|) / mean(A) as percentage; shimmerDb = 20*log10(1 + ratio).
-     * @param {Array<{time: number, amplitude: number}>} amplitudeData - Amplitude data from state
+     * Compute shimmer from per-pitch-cycle peak amplitudes (voiced frames only).
+     * For each voiced frame: extract 30ms window, find peak |amplitude| per pitch period,
+     * shimmer = mean(|peak[i+1]-peak[i]|) / mean(peaks) * 100.
+     * @param {Float32Array|number[]} audioData - Raw mono audio
+     * @param {number} sampleRate - Samples per second
+     * @param {Array<{time: number, f0: number}>} f0Contour - Voiced frames from analyzePitch
      * @returns {{ shimmer: number, shimmerDb: number }}
      */
-    analyzeShimmer(amplitudeData) {
-        const threshold = this.config.silenceThreshold;
-        const amps = amplitudeData
-            .map((d) => d.amplitude)
-            .filter((a) => a > threshold);
-        if (amps.length < 2) {
+    analyzeShimmer(audioData, sampleRate, f0Contour) {
+        if (f0Contour.length === 0) {
             return { shimmer: 0, shimmerDb: 0 };
         }
-        let sumAbsDiff = 0;
-        for (let i = 1; i < amps.length; i++) {
-            sumAbsDiff += Math.abs(amps[i] - amps[i - 1]);
+        const windowMs = 30;
+        const windowSamples = Math.round((windowMs / 1000) * sampleRate);
+        const frameShimmers = [];
+
+        for (const { time, f0 } of f0Contour) {
+            const start = Math.round(time * sampleRate);
+            if (start + windowSamples > audioData.length || start < 0) continue;
+            const period = Math.round(sampleRate / f0);
+            if (period < 1 || period >= windowSamples) continue;
+
+            const peaks = [];
+            for (let segStart = 0; segStart + period <= windowSamples; segStart += period) {
+                let peak = 0;
+                for (let i = 0; i < period; i++) {
+                    const val = Math.abs(audioData[start + segStart + i]);
+                    if (val > peak) peak = val;
+                }
+                peaks.push(peak);
+            }
+            if (peaks.length < 2) continue;
+            let sumAbsDiff = 0;
+            for (let i = 1; i < peaks.length; i++) {
+                sumAbsDiff += Math.abs(peaks[i] - peaks[i - 1]);
+            }
+            const meanPeaks = peaks.reduce((a, b) => a + b, 0) / peaks.length;
+            const frameShimmer = meanPeaks > 0 ? (sumAbsDiff / (peaks.length - 1) / meanPeaks) * 100 : 0;
+            frameShimmers.push(frameShimmer);
         }
-        const meanAbsDiff = sumAbsDiff / (amps.length - 1);
-        const meanAmp = amps.reduce((a, b) => a + b, 0) / amps.length;
-        const shimmerRatio = meanAmp > 0 ? meanAbsDiff / meanAmp : 0;
-        const shimmer = shimmerRatio * 100;
-        const shimmerDb = meanAmp > 0 ? 20 * Math.log10(1 + shimmerRatio) : 0;
+
+        const shimmer = frameShimmers.length > 0
+            ? frameShimmers.reduce((a, b) => a + b, 0) / frameShimmers.length
+            : 0;
+        const shimmerRatio = shimmer / 100;
+        const shimmerDb = 20 * Math.log10(1 + shimmerRatio);
         return {
             shimmer: Math.round(shimmer * 100) / 100,
             shimmerDb: Math.round(shimmerDb * 100) / 100
@@ -631,9 +594,6 @@ const VoiceLogic = {
      */
     detectSpeechSegments(amplitudes) {
         const threshold = this.config.silenceThreshold;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:detectSpeechSegments:entry',message:'Starting segment detection',data:{threshold,amplitudesCount:amplitudes.length,amplitudeDataCount:this.state.amplitudeData.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'SPEAK_A'})}).catch(()=>{});
-        // #endregion
         
         // Calculate actual time between readings using stored timestamps
         // This works correctly for both AudioWorklet (128 samples) and ScriptProcessor (4096 samples)
@@ -651,9 +611,6 @@ const VoiceLogic = {
         
         // Minimum pause duration in readings
         const minPauseSamples = Math.ceil(this.config.minPauseDuration / secondsPerReading);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:detectSpeechSegments:timing',message:'Timing calculated',data:{avgTimePerReading,secondsPerReading,minPauseSamples,totalAmplitudes:amplitudes.length,expectedTotalTime:amplitudes.length*secondsPerReading},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'SPEAK_B'})}).catch(()=>{});
-        // #endregion
         
         const segments = [];
         let currentSegment = null;
@@ -697,11 +654,7 @@ const VoiceLogic = {
         for (const segment of segments) {
             speakingDuration += (segment.end - segment.start + 1) * secondsPerReading;
         }
-        // #region agent log
-        const aboveThreshold = amplitudes.filter(a => a > threshold).length;
-        fetch('http://127.0.0.1:7242/ingest/ec1df7ec-b0cb-4e72-a7d0-98b9769bdbd6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'voice-logic.js:detectSpeechSegments:result',message:'Segment detection complete',data:{speakingDuration,pauseCount,segmentCount:segments.length,aboveThreshold,totalAmplitudes:amplitudes.length,percentAboveThreshold:(aboveThreshold/amplitudes.length*100).toFixed(1)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'SPEAK_C'})}).catch(()=>{});
-        // #endregion
-        
+
         return { speakingDuration, pauseCount, segments };
     },
     
@@ -855,10 +808,10 @@ const VoiceLogic = {
 
         const centroidValues = [];
         const tiltValues = [];
+        const real = new Array(fftSize);
+        const imag = new Array(fftSize);
 
         for (let start = 0; start + windowSamples <= audioData.length; start += hopSamples) {
-            const real = new Array(fftSize);
-            const imag = new Array(fftSize);
             for (let i = 0; i < fftSize; i++) {
                 if (i < windowSamples) {
                     const w = windowSamples > 1 ? 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSamples - 1))) : 1;
@@ -957,9 +910,11 @@ const VoiceLogic = {
     },
 
     /**
-     * Calculate voice score (0-10)
-     * Lower score = better voice control. Includes pitch (F0 stdDev, jitter) and shimmer.
-     * @param {Object} metrics - Voice metrics including f0StdDev, jitter, shimmer
+     * Calculate voice score (0-10).
+     * Lower score = better voice control. Total max = 10.
+     * Breakdown: duration 0-1.5, pause 0-1.5, F0 stdDev (monotonicity) 0-1.5,
+     * jitter 0-1.5, shimmer 0-1, prosodic amplitude decay 0-1.5, HNR 0-1.5.
+     * @param {Object} metrics - Voice metrics
      * @returns {number} Score 0-10
      */
     calculateScore(metrics) {
@@ -999,33 +954,35 @@ const VoiceLogic = {
         
         // Speaking rate factor removed (less specific to PD than prosodic decay)
         
-        // F0 stdDev: reduced range (stdDev < 20 Hz) = monotone speech, PD indicator (0-1 points)
-        if (f0StdDev > 0 && f0StdDev < 20) {
-            score += 1 * (1 - f0StdDev / 20);
+        // F0 stdDev: monotonicity (stdDev < 15 Hz = 1.5 pts, < 20 Hz = linear scale) (0-1.5 points)
+        if (f0StdDev > 0 && f0StdDev < 15) {
+            score += 1.5;
+        } else if (f0StdDev < 20) {
+            score += 1.5 * (20 - f0StdDev) / 5;
         }
         
-        // Jitter: elevated (> 1.5%) = PD indicator (0-1 points)
+        // Jitter: elevated (> 1.5%) linear to 4% (0-1.5 points)
         if (jitter > 1.5) {
-            score += Math.min(1, 1 * (jitter - 1.5) / 2.5);
+            score += Math.min(1.5, 1.5 * (jitter - 1.5) / 2.5);
         }
         
-        // Shimmer: elevated = vocal instability, PD indicator (0-1 points)
+        // Shimmer: elevated = vocal instability (0-1 point)
         if (shimmer > 12) {
             score += 1;
         } else if (shimmer > 8) {
             score += 0.5;
         }
         
-        // Prosodic decay: amplitude decline within utterance, PD indicator (0-2 points)
+        // Prosodic decay: amplitude decline within utterance (0-1.5 points)
         if (amplitudeDecay > 0.40) {
-            score += 2;
+            score += 1.5;
         } else if (amplitudeDecay > 0.25) {
             score += 1;
         }
         
-        // HNR: low = breathiness, PD indicator (0-2 points)
+        // HNR: low = breathiness (0-1.5 points)
         if (meanHNR > 0 && meanHNR < 10) {
-            score += 2;
+            score += 1.5;
         } else if (meanHNR > 0 && meanHNR < 15) {
             score += 1;
         }
