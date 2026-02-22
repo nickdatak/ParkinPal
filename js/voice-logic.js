@@ -459,6 +459,7 @@ const VoiceLogic = {
                 pauses: 0,
                 variance: 0,
                 speakingRate: 0,
+                pitch: { f0Contour: [], meanF0: 0, f0StdDev: 0, f0Range: 0, jitter: 0, voicedFrameRatio: 0 },
                 details: { error: 'Insufficient data' }
             };
         }
@@ -487,13 +488,22 @@ const VoiceLogic = {
             ? (actualWordCount / speakingDuration) * 60
             : 0;
         
+        // Pitch analysis from raw audio
+        const audioData = this.combineAudioBuffers();
+        const sampleRate = this.state.audioContext?.sampleRate ?? this.config.sampleRate;
+        const pitch = audioData.length >= Math.round(0.03 * sampleRate)
+            ? this.analyzePitch(audioData, sampleRate)
+            : { f0Contour: [], meanF0: 0, f0StdDev: 0, f0Range: 0, jitter: 0, voicedFrameRatio: 0 };
+        
         // Calculate score
         const score = this.calculateScore({
             speakingDuration,
             pauseCount,
             speakingRate,
             wordCount: actualWordCount,
-            speechRecognitionAvailable: this.state.speechRecognitionSupported
+            speechRecognitionAvailable: this.state.speechRecognitionSupported,
+            f0StdDev: pitch.f0StdDev,
+            jitter: pitch.jitter
         });
         
         return {
@@ -502,12 +512,14 @@ const VoiceLogic = {
             pauses: pauseCount,
             variance: Math.round(variance * 1000) / 1000,
             speakingRate: Math.round(speakingRate),
+            pitch,
             details: {
                 totalDuration: this.state.amplitudeData.length > 0
                     ? this.state.amplitudeData[this.state.amplitudeData.length - 1].time / 1000
                     : 0,
                 segmentCount: segments.length,
-                wordCount: actualWordCount
+                wordCount: actualWordCount,
+                pitch
             }
         };
     },
@@ -594,68 +606,166 @@ const VoiceLogic = {
     },
     
     /**
+     * Extract fundamental frequency (F0) contour using autocorrelation.
+     * 30ms windows, 10ms hop; Hann window; normalized autocorrelation for 75-500 Hz.
+     * @param {Float32Array|number[]} audioData - Raw mono audio samples
+     * @param {number} sampleRate - Samples per second
+     * @returns {Object} { f0Contour, meanF0, f0StdDev, f0Range, jitter, voicedFrameRatio }
+     */
+    analyzePitch(audioData, sampleRate) {
+        const windowMs = 30;
+        const hopMs = 10;
+        const windowSamples = Math.round((windowMs / 1000) * sampleRate);
+        const hopSamples = Math.round((hopMs / 1000) * sampleRate);
+        const minLag = Math.ceil(sampleRate / 500);
+        const maxLag = Math.floor(sampleRate / 75);
+        const voicingThreshold = 0.3;
+
+        const f0Contour = [];
+        const f0Values = [];
+
+        for (let start = 0; start + windowSamples <= audioData.length; start += hopSamples) {
+            const timeSec = start / sampleRate;
+            const window = new Float32Array(windowSamples);
+            for (let i = 0; i < windowSamples; i++) {
+                const w = windowSamples > 1 ? 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSamples - 1))) : 1;
+                window[i] = audioData[start + i] * w;
+            }
+
+            let bestLag = -1;
+            let bestCorr = voicingThreshold;
+
+            for (let lag = minLag; lag <= maxLag && lag < windowSamples; lag++) {
+                let sum = 0;
+                let sum0 = 0;
+                let sumL = 0;
+                const len = windowSamples - lag;
+                for (let i = 0; i < len; i++) {
+                    sum += window[i] * window[i + lag];
+                    sum0 += window[i] * window[i];
+                    sumL += window[i + lag] * window[i + lag];
+                }
+                const denom = Math.sqrt(sum0 * sumL);
+                const corr = denom > 0 ? sum / denom : 0;
+                if (corr > bestCorr) {
+                    bestCorr = corr;
+                    bestLag = lag;
+                }
+            }
+
+            if (bestLag > 0) {
+                const f0 = sampleRate / bestLag;
+                f0Contour.push({ time: timeSec, f0 });
+                f0Values.push(f0);
+            }
+        }
+
+        const voicedCount = f0Values.length;
+        const totalFrames = Math.max(1, Math.floor((audioData.length - windowSamples) / hopSamples) + 1);
+        const voicedFrameRatio = voicedCount / totalFrames;
+
+        let meanF0 = 0;
+        let f0StdDev = 0;
+        let f0Range = 0;
+        let jitter = 0;
+
+        if (f0Values.length >= 1) {
+            meanF0 = f0Values.reduce((a, b) => a + b, 0) / f0Values.length;
+            const variance = f0Values.reduce((s, v) => s + (v - meanF0) ** 2, 0) / f0Values.length;
+            f0StdDev = Math.sqrt(variance);
+            f0Range = Math.max(...f0Values) - Math.min(...f0Values);
+            if (f0Values.length >= 2) {
+                let sumAbsDiff = 0;
+                for (let i = 1; i < f0Values.length; i++) {
+                    sumAbsDiff += Math.abs(f0Values[i] - f0Values[i - 1]);
+                }
+                jitter = meanF0 > 0 ? (sumAbsDiff / (f0Values.length - 1) / meanF0) * 100 : 0;
+            }
+        }
+
+        return {
+            f0Contour,
+            meanF0: Math.round(meanF0 * 10) / 10,
+            f0StdDev: Math.round(f0StdDev * 10) / 10,
+            f0Range: Math.round(f0Range * 10) / 10,
+            jitter: Math.round(jitter * 100) / 100,
+            voicedFrameRatio: Math.round(voicedFrameRatio * 1000) / 1000
+        };
+    },
+
+    /**
      * Calculate voice score (0-10)
-     * Lower score = better voice control
-     * @param {Object} metrics - Voice metrics
+     * Lower score = better voice control. Includes pitch metrics: reduced F0 range
+     * (monotone) and elevated jitter are PD indicators.
+     * @param {Object} metrics - Voice metrics (speakingDuration, pauseCount, speakingRate,
+     *   wordCount, speechRecognitionAvailable, f0StdDev, jitter)
      * @returns {number} Score 0-10
      */
     calculateScore(metrics) {
-        const { speakingDuration, pauseCount, speakingRate, wordCount, speechRecognitionAvailable } = metrics;
+        const {
+            speakingDuration,
+            pauseCount,
+            speakingRate,
+            wordCount,
+            speechRecognitionAvailable,
+            f0StdDev = 0,
+            jitter = 0
+        } = metrics;
         
-        // Ideal values for comparison
-        const idealDuration = 4; // seconds for the phrase
-        const idealRate = 135; // words per minute
+        const idealDuration = 4;
+        const idealRate = 135;
         
         let score = 0;
         
-        // Duration factor (0-3 points)
-        // Too fast or too slow is problematic
+        // Duration factor (0-2 points, rebalanced)
         const durationRatio = speakingDuration / idealDuration;
         if (durationRatio < 0.5 || durationRatio > 2) {
-            score += 3;
+            score += 2;
         } else if (durationRatio < 0.7 || durationRatio > 1.5) {
-            score += 2;
+            score += 1.5;
         } else if (durationRatio < 0.8 || durationRatio > 1.2) {
-            score += 1;
+            score += 0.5;
         }
         
-        // Pause factor (0-3 points)
-        // More pauses = higher score (worse)
+        // Pause factor (0-2 points, rebalanced)
         if (pauseCount >= 4) {
-            score += 3;
-        } else if (pauseCount >= 2) {
             score += 2;
+        } else if (pauseCount >= 2) {
+            score += 1.5;
         } else if (pauseCount >= 1) {
-            score += 1;
+            score += 0.5;
         }
         
-        // Speaking rate factor (0-2 points)
-        // Only apply if speech recognition is available and we have words
+        // Speaking rate factor (0-1.5 points, rebalanced)
         if (speechRecognitionAvailable && wordCount > 0 && speakingRate > 0) {
-            // 150-210 WPM is ideal (0 points)
-            // 115-150 WPM is slightly slow (1 point)
-            // Below 115 or above 210 is problematic (2 points)
             if (speakingRate < 115 || speakingRate > 210) {
-                score += 2;
+                score += 1.5;
             } else if (speakingRate < 150) {
-                score += 1;
+                score += 0.75;
             }
-            // 150-210 WPM adds 0 points
         }
         
-        // Word count penalty (0-2 points)
-        // Target phrase has 9 words - penalize for not completing it
-        const targetWordCount = 9; // "The quick brown fox jumps over the lazy dog"
+        // Word count penalty (0-1.5 points, rebalanced)
+        const targetWordCount = 9;
         if (speechRecognitionAvailable && wordCount < targetWordCount) {
             const missingWords = targetWordCount - wordCount;
             if (missingWords >= 4) {
-                score += 2; // Missed 4+ words
+                score += 1.5;
             } else if (missingWords >= 1) {
-                score += 1; // Missed 1-3 words
+                score += 0.5;
             }
         }
         
-        // Clamp to 0-10
+        // F0 stdDev: reduced range (stdDev < 20 Hz) = monotone speech, PD indicator (0-1.5 points)
+        if (f0StdDev > 0 && f0StdDev < 20) {
+            score += 1.5 * (1 - f0StdDev / 20);
+        }
+        
+        // Jitter: elevated (> 1.5%) = PD indicator (0-1.5 points)
+        if (jitter > 1.5) {
+            score += Math.min(1.5, 1.5 * (jitter - 1.5) / 2.5);
+        }
+        
         return Utils.clamp(Math.round(score * 10) / 10, 0, 10);
     },
     
