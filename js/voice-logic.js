@@ -460,6 +460,10 @@ const VoiceLogic = {
                 variance: 0,
                 speakingRate: 0,
                 pitch: { f0Contour: [], meanF0: 0, f0StdDev: 0, f0Range: 0, jitter: 0, voicedFrameRatio: 0 },
+                hnr: { meanHNR: 0, hnrValues: [] },
+                prosodicDecay: { amplitudeDecay: 0, rateDecay: 0, firstThirdAmplitude: 0, lastThirdAmplitude: 0 },
+                spectral: { meanSpectralCentroid: 0, spectralCentroidStdDev: 0, meanSpectralTilt: 0 },
+                shimmer: { shimmer: 0, shimmerDb: 0 },
                 details: { error: 'Insufficient data' }
             };
         }
@@ -494,16 +498,25 @@ const VoiceLogic = {
         const pitch = audioData.length >= Math.round(0.03 * sampleRate)
             ? this.analyzePitch(audioData, sampleRate)
             : { f0Contour: [], meanF0: 0, f0StdDev: 0, f0Range: 0, jitter: 0, voicedFrameRatio: 0 };
+        const hnr = pitch.f0Contour.length > 0
+            ? this.analyzeHNR(audioData, sampleRate, pitch.f0Contour)
+            : { meanHNR: 0, hnrValues: [] };
+        const shimmer = this.analyzeShimmer(this.state.amplitudeData);
+        const prosodicDecay = this.analyzeProsodicDecay(this.state.amplitudeData);
+        const spectral = audioData.length >= Math.round(0.03 * sampleRate)
+            ? this.analyzeSpectralFeatures(audioData, sampleRate)
+            : { meanSpectralCentroid: 0, spectralCentroidStdDev: 0, meanSpectralTilt: 0 };
         
         // Calculate score
         const score = this.calculateScore({
             speakingDuration,
             pauseCount,
-            speakingRate,
-            wordCount: actualWordCount,
             speechRecognitionAvailable: this.state.speechRecognitionSupported,
             f0StdDev: pitch.f0StdDev,
-            jitter: pitch.jitter
+            jitter: pitch.jitter,
+            shimmer: shimmer.shimmer,
+            meanHNR: hnr.meanHNR,
+            amplitudeDecay: prosodicDecay.amplitudeDecay
         });
         
         return {
@@ -513,17 +526,104 @@ const VoiceLogic = {
             variance: Math.round(variance * 1000) / 1000,
             speakingRate: Math.round(speakingRate),
             pitch,
+            hnr,
+            prosodicDecay,
+            spectral,
+            shimmer,
             details: {
                 totalDuration: this.state.amplitudeData.length > 0
                     ? this.state.amplitudeData[this.state.amplitudeData.length - 1].time / 1000
                     : 0,
                 segmentCount: segments.length,
                 wordCount: actualWordCount,
-                pitch
+                pitch,
+                hnr,
+                prosodicDecay,
+                spectral,
+                shimmer
             }
         };
     },
     
+    /**
+     * Measure prosodic decay (loudness and rate decline across utterance).
+     * Splits speaking frames into thirds; amplitudeDecay = (meanFirst - meanLast) / meanFirst.
+     * rateDecay = drop in above-threshold frame density from first to last third of recording.
+     * @param {Array<{time: number, amplitude: number}>} amplitudeData - Amplitude data from state
+     * @returns {{ amplitudeDecay: number, rateDecay: number, firstThirdAmplitude: number, lastThirdAmplitude: number }}
+     */
+    analyzeProsodicDecay(amplitudeData) {
+        const threshold = this.config.silenceThreshold;
+        const speakingAmps = amplitudeData
+            .map((d) => d.amplitude)
+            .filter((a) => a > threshold);
+        const n = amplitudeData.length;
+        if (speakingAmps.length < 3 || n < 3) {
+            return { amplitudeDecay: 0, rateDecay: 0, firstThirdAmplitude: 0, lastThirdAmplitude: 0 };
+        }
+        const third = Math.floor(speakingAmps.length / 3);
+        const firstThird = speakingAmps.slice(0, third);
+        const lastThird = speakingAmps.slice(-third);
+        const meanFirst = firstThird.reduce((a, b) => a + b, 0) / firstThird.length;
+        const meanLast = lastThird.reduce((a, b) => a + b, 0) / lastThird.length;
+        const amplitudeDecay = meanFirst > 0
+            ? Math.max(0, Math.min(1, (meanFirst - meanLast) / meanFirst))
+            : 0;
+
+        const firstSegmentSize = Math.max(1, Math.floor(n / 3));
+        const lastSegmentSize = Math.max(1, Math.floor(n / 3));
+        let countFirst = 0;
+        for (let i = 0; i < firstSegmentSize && i < n; i++) {
+            if (amplitudeData[i].amplitude > threshold) countFirst++;
+        }
+        let countLast = 0;
+        const lastStart = Math.max(0, n - lastSegmentSize);
+        for (let i = lastStart; i < n; i++) {
+            if (amplitudeData[i].amplitude > threshold) countLast++;
+        }
+        const densityFirst = countFirst / firstSegmentSize;
+        const densityLast = countLast / lastSegmentSize;
+        const rateDecay = densityFirst > 0
+            ? Math.max(0, Math.min(1, (densityFirst - densityLast) / densityFirst))
+            : 0;
+
+        return {
+            amplitudeDecay: Math.round(amplitudeDecay * 1000) / 1000,
+            rateDecay: Math.round(rateDecay * 1000) / 1000,
+            firstThirdAmplitude: Math.round(meanFirst * 1000) / 1000,
+            lastThirdAmplitude: Math.round(meanLast * 1000) / 1000
+        };
+    },
+
+    /**
+     * Compute shimmer from amplitude envelope (voiced/speaking frames only).
+     * Shimmer = mean(|A[i+1]-A[i]|) / mean(A) as percentage; shimmerDb = 20*log10(1 + ratio).
+     * @param {Array<{time: number, amplitude: number}>} amplitudeData - Amplitude data from state
+     * @returns {{ shimmer: number, shimmerDb: number }}
+     */
+    analyzeShimmer(amplitudeData) {
+        const threshold = this.config.silenceThreshold;
+        const amps = amplitudeData
+            .map((d) => d.amplitude)
+            .filter((a) => a > threshold);
+        if (amps.length < 2) {
+            return { shimmer: 0, shimmerDb: 0 };
+        }
+        let sumAbsDiff = 0;
+        for (let i = 1; i < amps.length; i++) {
+            sumAbsDiff += Math.abs(amps[i] - amps[i - 1]);
+        }
+        const meanAbsDiff = sumAbsDiff / (amps.length - 1);
+        const meanAmp = amps.reduce((a, b) => a + b, 0) / amps.length;
+        const shimmerRatio = meanAmp > 0 ? meanAbsDiff / meanAmp : 0;
+        const shimmer = shimmerRatio * 100;
+        const shimmerDb = meanAmp > 0 ? 20 * Math.log10(1 + shimmerRatio) : 0;
+        return {
+            shimmer: Math.round(shimmer * 100) / 100,
+            shimmerDb: Math.round(shimmerDb * 100) / 100
+        };
+    },
+
     /**
      * Detect speech segments and pauses
      * @param {number[]} amplitudes - Array of amplitude values
@@ -694,76 +794,240 @@ const VoiceLogic = {
     },
 
     /**
+     * In-place radix-2 FFT (Cooley-Tukey). Modifies real and imag arrays.
+     * @param {number[]} real - Real part (length must be power of 2)
+     * @param {number[]} imag - Imaginary part
+     */
+    _fft(real, imag) {
+        const N = real.length;
+        if (N <= 1) return;
+        let j = 0;
+        for (let i = 0; i < N; i++) {
+            if (i < j) {
+                [real[i], real[j]] = [real[j], real[i]];
+                [imag[i], imag[j]] = [imag[j], imag[i]];
+            }
+            let m = N >> 1;
+            while (m >= 1 && j >= m) {
+                j -= m;
+                m >>= 1;
+            }
+            j += m;
+        }
+        for (let len = 2; len <= N; len *= 2) {
+            const angle = -2 * Math.PI / len;
+            const wlenReal = Math.cos(angle);
+            const wlenImag = Math.sin(angle);
+            for (let i = 0; i < N; i += len) {
+                let wReal = 1, wImag = 0;
+                for (let j = 0; j < len / 2; j++) {
+                    const u = i + j, v = u + len / 2;
+                    const tReal = real[v] * wReal - imag[v] * wImag;
+                    const tImag = real[v] * wImag + imag[v] * wReal;
+                    real[v] = real[u] - tReal; imag[v] = imag[u] - tImag;
+                    real[u] += tReal; imag[u] += tImag;
+                    const nwR = wReal * wlenReal - wImag * wlenImag;
+                    const nwI = wReal * wlenImag + wImag * wlenReal;
+                    wReal = nwR; wImag = nwI;
+                }
+            }
+        }
+    },
+
+    /**
+     * Compute spectral features from raw audio (30ms windows, 10ms hop).
+     * spectralCentroid = center of mass of spectrum in Hz; spectralTilt = low/high energy ratio.
+     * Informational only (not used in scoring).
+     * @param {Float32Array|number[]} audioData - Raw mono audio
+     * @param {number} sampleRate - Samples per second
+     * @returns {{ meanSpectralCentroid: number, spectralCentroidStdDev: number, meanSpectralTilt: number }}
+     */
+    analyzeSpectralFeatures(audioData, sampleRate) {
+        const windowMs = 30;
+        const hopMs = 10;
+        const windowSamples = Math.round((windowMs / 1000) * sampleRate);
+        const hopSamples = Math.round((hopMs / 1000) * sampleRate);
+        let fftSize = 2;
+        while (fftSize < windowSamples) fftSize *= 2;
+        const df = sampleRate / fftSize;
+        const nyquistBin = fftSize / 2;
+        const cutoffBin = Math.min(nyquistBin, Math.ceil(1000 / df));
+
+        const centroidValues = [];
+        const tiltValues = [];
+
+        for (let start = 0; start + windowSamples <= audioData.length; start += hopSamples) {
+            const real = new Array(fftSize);
+            const imag = new Array(fftSize);
+            for (let i = 0; i < fftSize; i++) {
+                if (i < windowSamples) {
+                    const w = windowSamples > 1 ? 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSamples - 1))) : 1;
+                    real[i] = audioData[start + i] * w;
+                } else {
+                    real[i] = 0;
+                }
+                imag[i] = 0;
+            }
+            this._fft(real, imag);
+
+            const mag = new Array(nyquistBin);
+            let sumFreqMag = 0, sumMag = 0;
+            let energyBelow = 0, energyAbove = 0;
+            for (let k = 0; k < nyquistBin; k++) {
+                const m = Math.sqrt(real[k] * real[k] + imag[k] * imag[k]);
+                mag[k] = m;
+                const freq = k * df;
+                sumFreqMag += freq * m;
+                sumMag += m;
+                const e = m * m;
+                if (freq < 1000) energyBelow += e;
+                else energyAbove += e;
+            }
+            const centroid = sumMag > 0 ? sumFreqMag / sumMag : 0;
+            const tilt = energyAbove > 0 ? energyBelow / energyAbove : 0;
+            centroidValues.push(centroid);
+            tiltValues.push(tilt);
+        }
+
+        const meanCentroid = centroidValues.length > 0
+            ? centroidValues.reduce((a, b) => a + b, 0) / centroidValues.length
+            : 0;
+        const variance = centroidValues.length > 1
+            ? centroidValues.reduce((s, v) => s + (v - meanCentroid) ** 2, 0) / centroidValues.length
+            : 0;
+        const centroidStdDev = Math.sqrt(variance);
+        const meanTilt = tiltValues.length > 0
+            ? tiltValues.reduce((a, b) => a + b, 0) / tiltValues.length
+            : 0;
+
+        return {
+            meanSpectralCentroid: Math.round(meanCentroid * 10) / 10,
+            spectralCentroidStdDev: Math.round(centroidStdDev * 10) / 10,
+            meanSpectralTilt: Math.round(meanTilt * 100) / 100
+        };
+    },
+
+    /**
+     * Estimate harmonics-to-noise ratio from voiced frames using autocorrelation at F0 lag.
+     * Call after analyzePitch; uses f0Contour for frame alignment.
+     * @param {Float32Array|number[]} audioData - Raw mono audio
+     * @param {number} sampleRate - Samples per second
+     * @param {Array<{time: number, f0: number}>} f0Contour - Voiced frames from analyzePitch
+     * @returns {{ meanHNR: number, hnrValues: number[] }}
+     */
+    analyzeHNR(audioData, sampleRate, f0Contour) {
+        if (f0Contour.length === 0) {
+            return { meanHNR: 0, hnrValues: [] };
+        }
+        const windowMs = 30;
+        const windowSamples = Math.round((windowMs / 1000) * sampleRate);
+        const hnrValues = [];
+
+        for (const { time, f0 } of f0Contour) {
+            const start = Math.round(time * sampleRate);
+            if (start + windowSamples > audioData.length || start < 0) continue;
+            const lag = Math.round(sampleRate / f0);
+            if (lag < 1 || lag >= windowSamples) continue;
+
+            const window = new Float32Array(windowSamples);
+            for (let i = 0; i < windowSamples; i++) {
+                const w = windowSamples > 1 ? 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSamples - 1))) : 1;
+                window[i] = audioData[start + i] * w;
+            }
+            let sum = 0, sum0 = 0, sumL = 0;
+            const len = windowSamples - lag;
+            for (let i = 0; i < len; i++) {
+                sum += window[i] * window[i + lag];
+                sum0 += window[i] * window[i];
+                sumL += window[i + lag] * window[i + lag];
+            }
+            const denom = Math.sqrt(sum0 * sumL);
+            const rPeak = denom > 0 ? Math.max(0.01, Math.min(0.99, sum / denom)) : 0.01;
+            const hnr = 10 * Math.log10(rPeak / (1 - rPeak));
+            hnrValues.push(hnr);
+        }
+
+        const meanHNR = hnrValues.length > 0
+            ? hnrValues.reduce((a, b) => a + b, 0) / hnrValues.length
+            : 0;
+        return {
+            meanHNR: Math.round(meanHNR * 10) / 10,
+            hnrValues
+        };
+    },
+
+    /**
      * Calculate voice score (0-10)
-     * Lower score = better voice control. Includes pitch metrics: reduced F0 range
-     * (monotone) and elevated jitter are PD indicators.
-     * @param {Object} metrics - Voice metrics (speakingDuration, pauseCount, speakingRate,
-     *   wordCount, speechRecognitionAvailable, f0StdDev, jitter)
+     * Lower score = better voice control. Includes pitch (F0 stdDev, jitter) and shimmer.
+     * @param {Object} metrics - Voice metrics including f0StdDev, jitter, shimmer
      * @returns {number} Score 0-10
      */
     calculateScore(metrics) {
         const {
             speakingDuration,
             pauseCount,
-            speakingRate,
-            wordCount,
             speechRecognitionAvailable,
             f0StdDev = 0,
-            jitter = 0
+            jitter = 0,
+            shimmer = 0,
+            meanHNR = 0,
+            amplitudeDecay = 0
         } = metrics;
         
         const idealDuration = 4;
-        const idealRate = 135;
         
         let score = 0;
         
-        // Duration factor (0-2 points, rebalanced)
+        // Duration factor (0-1.5 points, rebalanced for shimmer)
         const durationRatio = speakingDuration / idealDuration;
         if (durationRatio < 0.5 || durationRatio > 2) {
-            score += 2;
-        } else if (durationRatio < 0.7 || durationRatio > 1.5) {
             score += 1.5;
+        } else if (durationRatio < 0.7 || durationRatio > 1.5) {
+            score += 1;
         } else if (durationRatio < 0.8 || durationRatio > 1.2) {
             score += 0.5;
         }
         
-        // Pause factor (0-2 points, rebalanced)
+        // Pause factor (0-1.5 points, rebalanced for shimmer)
         if (pauseCount >= 4) {
-            score += 2;
-        } else if (pauseCount >= 2) {
             score += 1.5;
+        } else if (pauseCount >= 2) {
+            score += 1;
         } else if (pauseCount >= 1) {
             score += 0.5;
         }
         
-        // Speaking rate factor (0-1.5 points, rebalanced)
-        if (speechRecognitionAvailable && wordCount > 0 && speakingRate > 0) {
-            if (speakingRate < 115 || speakingRate > 210) {
-                score += 1.5;
-            } else if (speakingRate < 150) {
-                score += 0.75;
-            }
-        }
+        // Speaking rate factor removed (less specific to PD than prosodic decay)
         
-        // Word count penalty (0-1.5 points, rebalanced)
-        const targetWordCount = 9;
-        if (speechRecognitionAvailable && wordCount < targetWordCount) {
-            const missingWords = targetWordCount - wordCount;
-            if (missingWords >= 4) {
-                score += 1.5;
-            } else if (missingWords >= 1) {
-                score += 0.5;
-            }
-        }
-        
-        // F0 stdDev: reduced range (stdDev < 20 Hz) = monotone speech, PD indicator (0-1.5 points)
+        // F0 stdDev: reduced range (stdDev < 20 Hz) = monotone speech, PD indicator (0-1 points)
         if (f0StdDev > 0 && f0StdDev < 20) {
-            score += 1.5 * (1 - f0StdDev / 20);
+            score += 1 * (1 - f0StdDev / 20);
         }
         
-        // Jitter: elevated (> 1.5%) = PD indicator (0-1.5 points)
+        // Jitter: elevated (> 1.5%) = PD indicator (0-1 points)
         if (jitter > 1.5) {
-            score += Math.min(1.5, 1.5 * (jitter - 1.5) / 2.5);
+            score += Math.min(1, 1 * (jitter - 1.5) / 2.5);
+        }
+        
+        // Shimmer: elevated = vocal instability, PD indicator (0-1 points)
+        if (shimmer > 12) {
+            score += 1;
+        } else if (shimmer > 8) {
+            score += 0.5;
+        }
+        
+        // Prosodic decay: amplitude decline within utterance, PD indicator (0-2 points)
+        if (amplitudeDecay > 0.40) {
+            score += 2;
+        } else if (amplitudeDecay > 0.25) {
+            score += 1;
+        }
+        
+        // HNR: low = breathiness, PD indicator (0-2 points)
+        if (meanHNR > 0 && meanHNR < 10) {
+            score += 2;
+        } else if (meanHNR > 0 && meanHNR < 15) {
+            score += 1;
         }
         
         return Utils.clamp(Math.round(score * 10) / 10, 0, 10);
