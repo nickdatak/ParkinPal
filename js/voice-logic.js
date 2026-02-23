@@ -960,6 +960,11 @@ const VoiceLogic = {
                 const w = windowSamples > 1 ? 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSamples - 1))) : 1;
                 window[i] = audioData[start + i] * w;
             }
+            let maxAbs = 0;
+            for (let i = 0; i < windowSamples; i++) maxAbs = Math.max(maxAbs, Math.abs(window[i]));
+            if (maxAbs > 0) {
+                for (let i = 0; i < windowSamples; i++) window[i] /= maxAbs;
+            }
             let sum = 0, sum0 = 0, sumL = 0;
             const len = windowSamples - lag;
             for (let i = 0; i < len; i++) {
