@@ -772,6 +772,19 @@ const VoiceLogic = {
             }
         }
 
+        // Two-pass outlier removal: remove frames >2 std dev from mean (catches clusters median filter misses)
+        if (f0Values.length >= 2) {
+            const mean = f0Values.reduce((a, b) => a + b, 0) / f0Values.length;
+            const variance = f0Values.reduce((s, v) => s + (v - mean) ** 2, 0) / f0Values.length;
+            const stdDev = Math.sqrt(variance);
+            for (let i = f0Values.length - 1; i >= 0; i--) {
+                if (Math.abs(f0Values[i] - mean) > 2 * stdDev) {
+                    f0Values.splice(i, 1);
+                    f0Contour.splice(i, 1);
+                }
+            }
+        }
+
         const voicedCount = f0Values.length;
         const totalFrames = Math.max(1, Math.floor((audioData.length - windowSamples) / hopSamples) + 1);
         const voicedFrameRatio = voicedCount / totalFrames;
@@ -897,8 +910,9 @@ const VoiceLogic = {
             }
             const centroid = sumMag > 0 ? sumFreqMag / sumMag : 0;
             const tilt = energyAbove > 0 ? energyBelow / energyAbove : 0;
+            const clampedTilt = Math.min(tilt, 1000);
             centroidValues.push(centroid);
-            tiltValues.push(tilt);
+            tiltValues.push(clampedTilt);
         }
 
         const meanCentroid = centroidValues.length > 0
