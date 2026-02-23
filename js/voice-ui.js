@@ -516,6 +516,12 @@ const VoiceUI = {
         
         // Stop recording and get results
         const results = VoiceLogic.stopRecording();
+        console.log(JSON.stringify(results, (key, val) => {
+            if (key === 'audioData') return '[Float32Array]';
+            if (key === 'f0Contour') return `[${val?.length ?? 0} frames]`;
+            if (key === 'hnrValues') return `[${val?.length ?? 0} values]`;
+            return val;
+        }, 2));
         this.state.testResults = results;
         this.state.audioData = results.audioData;
         
