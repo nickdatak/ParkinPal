@@ -750,7 +750,7 @@ const VoiceLogic = {
                     lagForF0 = bestLag + clamped;
                 }
                 const f0 = sampleRate / lagForF0;
-                f0Contour.push({ time: timeSec, f0 });
+                f0Contour.push({ time: timeSec, f0, correlation: bestCorr });
                 f0Values.push(f0);
             }
         }
@@ -934,50 +934,23 @@ const VoiceLogic = {
     },
 
     /**
-     * Estimate harmonics-to-noise ratio from voiced frames using autocorrelation at F0 lag.
-     * Call after analyzePitch; uses f0Contour for frame alignment.
-     * @param {Float32Array|number[]} audioData - Raw mono audio
-     * @param {number} sampleRate - Samples per second
-     * @param {Array<{time: number, f0: number}>} f0Contour - Voiced frames from analyzePitch
+     * Estimate harmonics-to-noise ratio from voiced frames using correlation stored in f0Contour.
+     * Uses the same autocorrelation peaks as pitch detection for consistency.
+     * @param {Float32Array|number[]} audioData - Raw mono audio (unused; kept for API compatibility)
+     * @param {number} sampleRate - Samples per second (unused; kept for API compatibility)
+     * @param {Array<{time: number, f0: number, correlation: number}>} f0Contour - Voiced frames from analyzePitch
      * @returns {{ meanHNR: number, hnrValues: number[] }}
      */
     analyzeHNR(audioData, sampleRate, f0Contour) {
         if (f0Contour.length === 0) {
             return { meanHNR: 0, hnrValues: [] };
         }
-        const windowMs = 30;
-        const windowSamples = Math.round((windowMs / 1000) * sampleRate);
         const hnrValues = [];
-
-        for (const { time, f0 } of f0Contour) {
-            const start = Math.round(time * sampleRate);
-            if (start + windowSamples > audioData.length || start < 0) continue;
-            const lag = Math.round(sampleRate / f0);
-            if (lag < 1 || lag >= windowSamples) continue;
-
-            const window = new Float32Array(windowSamples);
-            for (let i = 0; i < windowSamples; i++) {
-                const w = windowSamples > 1 ? 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSamples - 1))) : 1;
-                window[i] = audioData[start + i] * w;
-            }
-            let maxAbs = 0;
-            for (let i = 0; i < windowSamples; i++) maxAbs = Math.max(maxAbs, Math.abs(window[i]));
-            if (maxAbs > 0) {
-                for (let i = 0; i < windowSamples; i++) window[i] /= maxAbs;
-            }
-            let sum = 0, sum0 = 0, sumL = 0;
-            const len = windowSamples - lag;
-            for (let i = 0; i < len; i++) {
-                sum += window[i] * window[i + lag];
-                sum0 += window[i] * window[i];
-                sumL += window[i + lag] * window[i + lag];
-            }
-            const denom = Math.sqrt(sum0 * sumL);
-            const rPeak = denom > 0 ? Math.max(0.01, Math.min(0.99, sum / denom)) : 0.01;
+        for (const entry of f0Contour) {
+            const rPeak = Math.max(0.01, Math.min(0.99, entry.correlation));
             const hnr = 10 * Math.log10(rPeak / (1 - rPeak));
             hnrValues.push(hnr);
         }
-
         const meanHNR = hnrValues.length > 0
             ? hnrValues.reduce((a, b) => a + b, 0) / hnrValues.length
             : 0;
