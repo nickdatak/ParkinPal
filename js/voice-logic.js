@@ -668,7 +668,8 @@ const VoiceLogic = {
     
     /**
      * Extract fundamental frequency (F0) contour using autocorrelation.
-     * 30ms windows, 10ms hop; Hann window; normalized autocorrelation for 75-500 Hz.
+     * 30ms windows, 10ms hop; Hann window; normalized autocorrelation for 80-400 Hz (speech range).
+     * Adaptive RMS gate, voicing threshold 0.5, parabolic interpolation for sub-sample F0.
      * @param {Float32Array|number[]} audioData - Raw mono audio samples
      * @param {number} sampleRate - Samples per second
      * @returns {Object} { f0Contour, meanF0, f0StdDev, f0Range, jitter, voicedFrameRatio }
@@ -678,13 +679,41 @@ const VoiceLogic = {
         const hopMs = 10;
         const windowSamples = Math.round((windowMs / 1000) * sampleRate);
         const hopSamples = Math.round((hopMs / 1000) * sampleRate);
-        const minLag = Math.ceil(sampleRate / 500);
-        const maxLag = Math.floor(sampleRate / 75);
-        const voicingThreshold = 0.4;
-        const rmsThreshold = 0.01;
+        const minLag = Math.ceil(sampleRate / 400);
+        const maxLag = Math.floor(sampleRate / 80);
+        const voicingThreshold = 0.5;
+
+        // Pre-pass: compute RMS for every frame to get adaptive threshold (75th percentile)
+        const rmsValues = [];
+        for (let start = 0; start + windowSamples <= audioData.length; start += hopSamples) {
+            const window = new Float32Array(windowSamples);
+            for (let i = 0; i < windowSamples; i++) {
+                const w = windowSamples > 1 ? 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSamples - 1))) : 1;
+                window[i] = audioData[start + i] * w;
+            }
+            let rmsSum = 0;
+            for (let i = 0; i < windowSamples; i++) rmsSum += window[i] * window[i];
+            rmsValues.push(Math.sqrt(rmsSum / windowSamples));
+        }
+        rmsValues.sort((a, b) => a - b);
+        const idx75 = rmsValues.length > 0 ? Math.min(rmsValues.length - 1, Math.floor(0.75 * rmsValues.length)) : 0;
+        const percentile75 = rmsValues.length > 0 ? rmsValues[idx75] : 0;
+        const rmsThreshold = Math.max(0.005, percentile75 * 0.3);
 
         const f0Contour = [];
         const f0Values = [];
+
+        const autocorrAt = (window, lag) => {
+            const len = windowSamples - lag;
+            let sum = 0, sum0 = 0, sumL = 0;
+            for (let i = 0; i < len; i++) {
+                sum += window[i] * window[i + lag];
+                sum0 += window[i] * window[i];
+                sumL += window[i + lag] * window[i + lag];
+            }
+            const denom = Math.sqrt(sum0 * sumL);
+            return denom > 0 ? sum / denom : 0;
+        };
 
         for (let start = 0; start + windowSamples <= audioData.length; start += hopSamples) {
             const timeSec = start / sampleRate;
@@ -702,17 +731,7 @@ const VoiceLogic = {
             let bestCorr = voicingThreshold;
 
             for (let lag = minLag; lag <= maxLag && lag < windowSamples; lag++) {
-                let sum = 0;
-                let sum0 = 0;
-                let sumL = 0;
-                const len = windowSamples - lag;
-                for (let i = 0; i < len; i++) {
-                    sum += window[i] * window[i + lag];
-                    sum0 += window[i] * window[i];
-                    sumL += window[i + lag] * window[i + lag];
-                }
-                const denom = Math.sqrt(sum0 * sumL);
-                const corr = denom > 0 ? sum / denom : 0;
+                const corr = autocorrAt(window, lag);
                 if (corr > bestCorr) {
                     bestCorr = corr;
                     bestLag = lag;
@@ -720,15 +739,25 @@ const VoiceLogic = {
             }
 
             if (bestLag > 0) {
-                const f0 = sampleRate / bestLag;
+                let lagForF0 = bestLag;
+                const corrLeft = bestLag > 1 ? autocorrAt(window, bestLag - 1) : bestCorr;
+                const corrCenter = bestCorr;
+                const corrRight = bestLag + 1 < windowSamples ? autocorrAt(window, bestLag + 1) : bestCorr;
+                const denom = corrLeft - 2 * corrCenter + corrRight;
+                if (denom < -1e-10) {
+                    const delta = 0.5 * (corrLeft - corrRight) / denom;
+                    const clamped = Math.max(-1, Math.min(1, delta));
+                    lagForF0 = bestLag + clamped;
+                }
+                const f0 = sampleRate / lagForF0;
                 f0Contour.push({ time: timeSec, f0 });
                 f0Values.push(f0);
             }
         }
 
-        // F0 continuity median filter: replace outliers deviating >50% from local median
+        // F0 continuity median filter: replace outliers deviating >30% from local median
         const winHalf = 2;
-        const deviationLimit = 0.5;
+        const deviationLimit = 0.3;
         for (let i = 0; i < f0Values.length; i++) {
             const lo = Math.max(0, i - winHalf);
             const hi = Math.min(f0Values.length - 1, i + winHalf);
