@@ -414,12 +414,16 @@ const VoiceLogic = {
         
         // Extract amplitude values
         const amplitudes = this.state.amplitudeData.map(d => d.amplitude);
-        
+        const sorted = [...amplitudes].sort((a, b) => a - b);
+        const medianAmp = sorted.length % 2 === 1
+            ? sorted[(sorted.length - 1) / 2]
+            : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+        const adaptiveThreshold = Math.max(0.005, medianAmp * 0.5);
         // Detect speaking segments and pauses
-        const { speakingDuration, pauseCount, segments } = this.detectSpeechSegments(amplitudes);
+        const { speakingDuration, pauseCount, segments } = this.detectSpeechSegments(amplitudes, adaptiveThreshold);
         
         // Calculate volume variance (standard deviation)
-        const speakingAmplitudes = amplitudes.filter(a => a > this.config.silenceThreshold);
+        const speakingAmplitudes = amplitudes.filter(a => a > adaptiveThreshold);
         const variance = speakingAmplitudes.length > 0 
             ? Utils.standardDeviation(speakingAmplitudes)
             : 0;
@@ -439,9 +443,9 @@ const VoiceLogic = {
             ? this.analyzeHNR(audioData, sampleRate, pitch.f0Contour)
             : { meanHNR: 0, hnrValues: [] };
         const shimmer = pitch.f0Contour.length > 0
-            ? this.analyzeShimmer(audioData, sampleRate, pitch.f0Contour)
+            ? this.analyzeShimmer(audioData, sampleRate, pitch.f0Contour, adaptiveThreshold)
             : { shimmer: 0, shimmerDb: 0 };
-        const prosodicDecay = this.analyzeProsodicDecay(this.state.amplitudeData);
+        const prosodicDecay = this.analyzeProsodicDecay(this.state.amplitudeData, adaptiveThreshold);
         const spectral = audioData.length >= Math.round(0.03 * sampleRate)
             ? this.analyzeSpectralFeatures(audioData, sampleRate)
             : { meanSpectralCentroid: 0, spectralCentroidStdDev: 0, meanSpectralTilt: 0 };
@@ -460,6 +464,7 @@ const VoiceLogic = {
         
         return {
             score,
+            adaptiveThreshold,
             duration: Math.round(speakingDuration * 10) / 10,
             pauses: pauseCount,
             variance: Math.round(variance * 1000) / 1000,
@@ -489,10 +494,11 @@ const VoiceLogic = {
      * Splits speaking frames into thirds; amplitudeDecay = (meanFirst - meanLast) / meanFirst.
      * rateDecay = drop in above-threshold frame density from first to last third of recording.
      * @param {Array<{time: number, amplitude: number}>} amplitudeData - Amplitude data from state
+     * @param {number} threshold - Adaptive silence threshold (from analyzeAudio)
      * @returns {{ amplitudeDecay: number, rateDecay: number, firstThirdAmplitude: number, lastThirdAmplitude: number }}
      */
-    analyzeProsodicDecay(amplitudeData) {
-        const threshold = this.config.silenceThreshold;
+    analyzeProsodicDecay(amplitudeData, threshold) {
+        if (threshold == null) threshold = this.config.silenceThreshold;
         const speakingAmps = amplitudeData
             .map((d) => d.amplitude)
             .filter((a) => a > threshold);
@@ -541,9 +547,10 @@ const VoiceLogic = {
      * @param {Float32Array|number[]} audioData - Raw mono audio
      * @param {number} sampleRate - Samples per second
      * @param {Array<{time: number, f0: number}>} f0Contour - Voiced frames from analyzePitch
+     * @param {number} [adaptiveThreshold] - Adaptive silence threshold (from analyzeAudio), for consistency
      * @returns {{ shimmer: number, shimmerDb: number }}
      */
-    analyzeShimmer(audioData, sampleRate, f0Contour) {
+    analyzeShimmer(audioData, sampleRate, f0Contour, adaptiveThreshold) {
         if (f0Contour.length === 0) {
             return { shimmer: 0, shimmerDb: 0 };
         }
@@ -590,10 +597,11 @@ const VoiceLogic = {
     /**
      * Detect speech segments and pauses
      * @param {number[]} amplitudes - Array of amplitude values
+     * @param {number} threshold - Adaptive silence threshold (from analyzeAudio)
      * @returns {Object} Speaking duration, pause count, and segments
      */
-    detectSpeechSegments(amplitudes) {
-        const threshold = this.config.silenceThreshold;
+    detectSpeechSegments(amplitudes, threshold) {
+        if (threshold == null) threshold = this.config.silenceThreshold;
         
         // Calculate actual time between readings using stored timestamps
         // This works correctly for both AudioWorklet (128 samples) and ScriptProcessor (4096 samples)
@@ -672,7 +680,8 @@ const VoiceLogic = {
         const hopSamples = Math.round((hopMs / 1000) * sampleRate);
         const minLag = Math.ceil(sampleRate / 500);
         const maxLag = Math.floor(sampleRate / 75);
-        const voicingThreshold = 0.3;
+        const voicingThreshold = 0.4;
+        const rmsThreshold = 0.01;
 
         const f0Contour = [];
         const f0Values = [];
@@ -684,6 +693,10 @@ const VoiceLogic = {
                 const w = windowSamples > 1 ? 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSamples - 1))) : 1;
                 window[i] = audioData[start + i] * w;
             }
+            let rmsSum = 0;
+            for (let i = 0; i < windowSamples; i++) rmsSum += window[i] * window[i];
+            const rms = Math.sqrt(rmsSum / windowSamples);
+            if (rms < rmsThreshold) continue;
 
             let bestLag = -1;
             let bestCorr = voicingThreshold;
@@ -710,6 +723,23 @@ const VoiceLogic = {
                 const f0 = sampleRate / bestLag;
                 f0Contour.push({ time: timeSec, f0 });
                 f0Values.push(f0);
+            }
+        }
+
+        // F0 continuity median filter: replace outliers deviating >50% from local median
+        const winHalf = 2;
+        const deviationLimit = 0.5;
+        for (let i = 0; i < f0Values.length; i++) {
+            const lo = Math.max(0, i - winHalf);
+            const hi = Math.min(f0Values.length - 1, i + winHalf);
+            const slice = f0Values.slice(lo, hi + 1).sort((a, b) => a - b);
+            const med = slice.length % 2 === 1
+                ? slice[(slice.length - 1) / 2]
+                : (slice[slice.length / 2 - 1] + slice[slice.length / 2]) / 2;
+            const v = f0Values[i];
+            if (med > 0 && Math.abs(v - med) / med > deviationLimit) {
+                f0Values[i] = med;
+                f0Contour[i].f0 = med;
             }
         }
 
