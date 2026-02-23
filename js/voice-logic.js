@@ -452,15 +452,12 @@ const VoiceLogic = {
         
         // Calculate score
         const score = this.calculateScore({
-            speakingDuration,
-            pauseCount,
-            speechRecognitionAvailable: this.state.speechRecognitionSupported,
             f0StdDev: pitch.f0StdDev,
+            variance,
             jitter: pitch.jitter,
             shimmer: shimmer.shimmer,
-            meanHNR: hnr.meanHNR, // informational only; excluded from scoring (sensitive to mic level)
-            amplitudeDecay: prosodicDecay.amplitudeDecay,
-            voicedFrameRatio: pitch.voicedFrameRatio
+            meanSpectralCentroid: spectral.meanSpectralCentroid,
+            pauseCount
         });
         
         return {
@@ -962,83 +959,63 @@ const VoiceLogic = {
     },
 
     /**
-     * Calculate voice score (0-10).
-     * Lower score = better voice control. Total max = 10.
-     * Breakdown: duration 0-1.5, pauses 0-1.5, F0 stdDev 0-1.5, jitter 0-1.5,
-     * shimmer 0-1.5, prosodic decay 0-2, voicedFrameRatio penalty 0-0.5.
-     * HNR is excluded from scoring (sensitive to microphone input level); kept in output for informational use.
+     * Calculate voice score (0-10). Higher = more PD-like symptoms.
+     * Breakdown: F0 stdDev 0-2.5, amplitude variance 0-2, jitter 0-1.5, shimmer 0-1.5,
+     * spectral centroid 0-1, pauses 0-1.5. Total max = 10.
+     * Duration, prosodic decay, and voicedFrameRatio excluded (kept in output for informational use).
      * @param {Object} metrics - Voice metrics
+     * @param {number} [metrics.f0StdDev] - F0 standard deviation (Hz)
+     * @param {number} [metrics.variance] - Amplitude variance (std dev of speaking amplitudes)
+     * @param {number} [metrics.jitter] - Jitter (%)
+     * @param {number} [metrics.shimmer] - Shimmer (%)
+     * @param {number} [metrics.meanSpectralCentroid] - Mean spectral centroid (Hz)
+     * @param {number} [metrics.pauseCount] - Number of pauses
      * @returns {number} Score 0-10
      */
     calculateScore(metrics) {
         const {
-            speakingDuration,
-            pauseCount,
-            speechRecognitionAvailable,
             f0StdDev = 0,
+            variance = 0,
             jitter = 0,
             shimmer = 0,
-            amplitudeDecay = 0,
-            voicedFrameRatio = 0
+            meanSpectralCentroid = 0,
+            pauseCount = 0
         } = metrics;
-        
-        const idealDuration = 4;
         
         let score = 0;
         
-        // Duration factor (0-1.5 points)
-        const durationRatio = speakingDuration / idealDuration;
-        if (durationRatio < 0.5 || durationRatio > 2) {
-            score += 1.5;
-        } else if (durationRatio < 0.7 || durationRatio > 1.5) {
-            score += 1;
-        } else if (durationRatio < 0.8 || durationRatio > 1.2) {
-            score += 0.5;
+        // F0 stdDev: low = monotone = PD (0-2.5 points)
+        if (f0StdDev > 0) {
+            if (f0StdDev < 5) score += 2.5;
+            else if (f0StdDev < 10) score += 2;
+            else if (f0StdDev < 15) score += 1;
+            else if (f0StdDev < 20) score += 0.5;
         }
         
-        // Pause factor (0-1.5 points)
-        if (pauseCount >= 4) {
-            score += 1.5;
-        } else if (pauseCount >= 2) {
-            score += 1;
-        } else if (pauseCount >= 1) {
-            score += 0.5;
-        }
+        // Amplitude variance: low = flat, unexpressive (0-2 points)
+        if (variance < 0.005) score += 2;
+        else if (variance < 0.01) score += 1.5;
+        else if (variance < 0.015) score += 1;
+        else if (variance < 0.02) score += 0.5;
         
-        // F0 stdDev: monotonicity (stdDev < 15 Hz = 1.5 pts, < 20 Hz = linear scale) (0-1.5 points)
-        if (f0StdDev > 0 && f0StdDev < 15) {
-            score += 1.5;
-        } else if (f0StdDev < 20) {
-            score += 1.5 * (20 - f0StdDev) / 5;
-        }
-        
-        // Jitter: elevated (> 1.5%) linear to 4% (0-1.5 points)
-        if (jitter > 1.5) {
-            score += Math.min(1.5, 1.5 * (jitter - 1.5) / 2.5);
-        }
+        // Jitter: elevated = vocal instability (0-1.5 points)
+        if (jitter > 3) score += 1.5;
+        else if (jitter > 2) score += 1;
+        else if (jitter > 1.5) score += 0.5;
         
         // Shimmer: elevated = vocal instability (0-1.5 points)
-        if (shimmer > 15) {
-            score += 1.5;
-        } else if (shimmer > 10) {
-            score += 1;
-        } else if (shimmer > 6) {
-            score += 0.5;
-        }
+        if (shimmer > 15) score += 1.5;
+        else if (shimmer > 10) score += 1;
+        else if (shimmer > 6) score += 0.5;
         
-        // Prosodic decay: amplitude decline within utterance (0-2 points)
-        if (amplitudeDecay > 0.40) {
-            score += 2;
-        } else if (amplitudeDecay > 0.25) {
-            score += 1.5;
-        } else if (amplitudeDecay > 0.15) {
-            score += 0.5;
-        }
+        // Spectral centroid: low = reduced vocal energy (0-1 point)
+        if (meanSpectralCentroid > 0 && meanSpectralCentroid < 1500) score += 1;
+        else if (meanSpectralCentroid < 2000) score += 0.5;
         
-        // VoicedFrameRatio penalty: unreliable analysis if barely any voiced frames (0-0.5 points)
-        if (voicedFrameRatio < 0.1) {
-            score += 0.5;
-        }
+        // Pauses: more = worse (0-1.5 points)
+        if (pauseCount >= 4) score += 1.5;
+        else if (pauseCount >= 2) score += 1;
+        else if (pauseCount >= 1) score += 0.5;
         
         return Utils.clamp(Math.round(score * 10) / 10, 0, 10);
     },
