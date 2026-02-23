@@ -458,8 +458,9 @@ const VoiceLogic = {
             f0StdDev: pitch.f0StdDev,
             jitter: pitch.jitter,
             shimmer: shimmer.shimmer,
-            meanHNR: hnr.meanHNR,
-            amplitudeDecay: prosodicDecay.amplitudeDecay
+            meanHNR: hnr.meanHNR, // informational only; excluded from scoring (sensitive to mic level)
+            amplitudeDecay: prosodicDecay.amplitudeDecay,
+            voicedFrameRatio: pitch.voicedFrameRatio
         });
         
         return {
@@ -963,8 +964,9 @@ const VoiceLogic = {
     /**
      * Calculate voice score (0-10).
      * Lower score = better voice control. Total max = 10.
-     * Breakdown: duration 0-1.5, pause 0-1.5, F0 stdDev (monotonicity) 0-1.5,
-     * jitter 0-1.5, shimmer 0-1, prosodic amplitude decay 0-1.5, HNR 0-1.5.
+     * Breakdown: duration 0-1.5, pauses 0-1.5, F0 stdDev 0-1.5, jitter 0-1.5,
+     * shimmer 0-1.5, prosodic decay 0-2, voicedFrameRatio penalty 0-0.5.
+     * HNR is excluded from scoring (sensitive to microphone input level); kept in output for informational use.
      * @param {Object} metrics - Voice metrics
      * @returns {number} Score 0-10
      */
@@ -976,15 +978,15 @@ const VoiceLogic = {
             f0StdDev = 0,
             jitter = 0,
             shimmer = 0,
-            meanHNR = 0,
-            amplitudeDecay = 0
+            amplitudeDecay = 0,
+            voicedFrameRatio = 0
         } = metrics;
         
         const idealDuration = 4;
         
         let score = 0;
         
-        // Duration factor (0-1.5 points, rebalanced for shimmer)
+        // Duration factor (0-1.5 points)
         const durationRatio = speakingDuration / idealDuration;
         if (durationRatio < 0.5 || durationRatio > 2) {
             score += 1.5;
@@ -994,7 +996,7 @@ const VoiceLogic = {
             score += 0.5;
         }
         
-        // Pause factor (0-1.5 points, rebalanced for shimmer)
+        // Pause factor (0-1.5 points)
         if (pauseCount >= 4) {
             score += 1.5;
         } else if (pauseCount >= 2) {
@@ -1002,8 +1004,6 @@ const VoiceLogic = {
         } else if (pauseCount >= 1) {
             score += 0.5;
         }
-        
-        // Speaking rate factor removed (less specific to PD than prosodic decay)
         
         // F0 stdDev: monotonicity (stdDev < 15 Hz = 1.5 pts, < 20 Hz = linear scale) (0-1.5 points)
         if (f0StdDev > 0 && f0StdDev < 15) {
@@ -1017,25 +1017,27 @@ const VoiceLogic = {
             score += Math.min(1.5, 1.5 * (jitter - 1.5) / 2.5);
         }
         
-        // Shimmer: elevated = vocal instability (0-1 point)
-        if (shimmer > 12) {
+        // Shimmer: elevated = vocal instability (0-1.5 points)
+        if (shimmer > 15) {
+            score += 1.5;
+        } else if (shimmer > 10) {
             score += 1;
-        } else if (shimmer > 8) {
+        } else if (shimmer > 6) {
             score += 0.5;
         }
         
-        // Prosodic decay: amplitude decline within utterance (0-1.5 points)
+        // Prosodic decay: amplitude decline within utterance (0-2 points)
         if (amplitudeDecay > 0.40) {
-            score += 1.5;
+            score += 2;
         } else if (amplitudeDecay > 0.25) {
-            score += 1;
+            score += 1.5;
+        } else if (amplitudeDecay > 0.15) {
+            score += 0.5;
         }
         
-        // HNR: low = breathiness (0-1.5 points)
-        if (meanHNR > 0 && meanHNR < 10) {
-            score += 1.5;
-        } else if (meanHNR > 0 && meanHNR < 15) {
-            score += 1;
+        // VoicedFrameRatio penalty: unreliable analysis if barely any voiced frames (0-0.5 points)
+        if (voicedFrameRatio < 0.1) {
+            score += 0.5;
         }
         
         return Utils.clamp(Math.round(score * 10) / 10, 0, 10);
